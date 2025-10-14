@@ -1,6 +1,6 @@
 import { useState, useRef, useContext } from "react";
 import { WorkflowContext } from "../../context/WorkflowContext";
-import { ExclamationTriangleIcon, ArrowRightIcon, ArrowLeftIcon, InformationCircleIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
+import { ExclamationTriangleIcon, CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/outline";
 import Button from "../Button";
 import InfoBox from "../InfoBox";
 import StepNavigationButtons from "../StepNavigationButtons";
@@ -50,7 +50,7 @@ const AccessAPICardContent = () => {
     setIsValidating(true);
     setIsSubmitted(true);
     setIsValid(false);
-    setApiKey(null);
+    setApiKey(null); // Make sure a possible prior key is deleted first
 
     const validationResult = await validateApiKey(currentInput);
 
@@ -58,6 +58,7 @@ const AccessAPICardContent = () => {
       setIsValid(true);
       setProceedAvailable(true);
       setApiKey(currentInput);
+      setCurrentInput("");
     } else {
       switch (validationResult.error) {
         case "invalid_key":
@@ -80,6 +81,12 @@ const AccessAPICardContent = () => {
     setIsValidating(false);
   };
 
+  const handleKeyDeletion = () => {
+    setApiKey(null);
+    setIsSubmitted(false);
+    setIsValid(false);
+  }
+
   return (
     <div className="flex flex-col w-full h-full items-center gap-4 pt-12 pb-6 px-6.5">
       <div className="flex items-center justify-between max-w-xl w-full gap-4">
@@ -88,6 +95,7 @@ const AccessAPICardContent = () => {
           <input 
             id="apiKey" 
             type="text" 
+            value={currentInput}
             onChange={(e) => setCurrentInput(e.target.value)}
             spellCheck="false" 
             className="border-1 w-full h-fit" 
@@ -95,6 +103,15 @@ const AccessAPICardContent = () => {
         </form>
         <Button label="Submit" onClick={handleSubmit} variant={isValidating ? "disabled" : "tertiary"}></Button>
       </div>
+      {apiKey && (
+        <div className="flex justify-center gap-6 items-center w-full px-7">
+          <div>Validated key:</div>
+          <div className="flex gap-1 items-center">
+            <i>{`${apiKey.slice(0, 11)}•••••${apiKey.slice(-3)}`}</i>
+            <XCircleIcon onClick={handleKeyDeletion} className="size-5 bg-red-600 hover:bg-red-800 rounded-full cursor-pointer"></XCircleIcon>
+          </div>
+        </div>
+      )}
       {isSubmitted && isValidating && (
         <InfoBox msg="Validating API key..." variant="loading"></InfoBox>
       )}
