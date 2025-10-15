@@ -17,9 +17,9 @@ const StepNavigationButtons = ({ hidePrev=false, hideNext=false }) => {
   }
 
   return (
-    <div className="flex w-full h-full items-end">
+    <div className="flex w-full">
       {!hidePrev && 
-        <div className="flex w-full justify-start">
+        <div className="flex flex-1 justify-start">
           <Button 
             label="Previous step"
             icon={ArrowLeftIcon} 
@@ -30,7 +30,7 @@ const StepNavigationButtons = ({ hidePrev=false, hideNext=false }) => {
         </div>
       }
       {!hideNext && 
-        <div className="flex w-full justify-end">
+        <div className="flex flex-1 justify-end">
           <Button
             label="Next step" 
             icon={ArrowRightIcon} 
