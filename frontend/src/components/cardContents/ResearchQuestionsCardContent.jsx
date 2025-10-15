@@ -21,7 +21,7 @@ const ResearchQuestionsCardContent = () => {
   }
 
   return (
-    <div className="flex flex-col w-full h-full gap-4">
+    <div className="flex flex-col w-full h-full gap-4 pt-12 pb-6 px-6.5">
       <div className="flex flex-col px-15 pb-10">
         <div className="flex flex-col pb-3">
           <ul className="list-disc ml-4">
