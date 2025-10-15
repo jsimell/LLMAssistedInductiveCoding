@@ -1,4 +1,4 @@
-import { useState, useRef, useContext } from "react";
+import { useState, useRef, useContext, useEffect } from "react";
 import { WorkflowContext } from "../../context/WorkflowContext";
 import { ExclamationTriangleIcon, CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/outline";
 import Button from "../Button";
@@ -15,6 +15,11 @@ const AccessAPICardContent = () => {
   const { apiKey, setApiKey, proceedAvailable, setProceedAvailable, currentStep, setCurrentStep } = useContext(WorkflowContext);
   const formRef = useRef(null);
   const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL
+
+  // Make sure the next step button is available if the user returns to this screen after validating a key previously
+  useEffect(() => {
+    (apiKey && currentStep === 2)  ? setProceedAvailable(true) : null;
+  }, [currentStep]);
 
   const validateApiKey = async (apiKey) => {
     try {
