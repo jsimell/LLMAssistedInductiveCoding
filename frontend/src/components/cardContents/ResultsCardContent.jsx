@@ -8,7 +8,7 @@ const ResultsCardContent = () => {
   // Moving to the next step should be allowed by default in this step
   useEffect(() => {
     setProceedAvailable(true);
-  });
+  }, []);
 
   return (
     codes?.length ? (
