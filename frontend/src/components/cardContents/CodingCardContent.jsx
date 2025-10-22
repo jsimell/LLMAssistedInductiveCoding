@@ -1,22 +1,14 @@
 import React, { useState, useContext, useEffect, useRef } from "react";
 import { WorkflowContext } from "../../context/WorkflowContext";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 
 const CodingCardContent = () => {
-  const { rawData, codebook, setProceedAvailable } = useContext(WorkflowContext);
+  const { passages, setPassages, codes, setCodes, setProceedAvailable } = useContext(WorkflowContext);
+
   const nextCodeIdRef = useRef(0);
-  //const [nextPassageId, setNextPassageId] = useState(1);  // Next available ID for passage identification
-  const [activeCodeId, setActiveCodeId] = useState(null);
   const activeCodeRef = useRef(null);  // A reference to the actual input element of the currently active code
 
-  // The following states are the core states that contain all the relevant data required for the data coding interaction.
-  // The codeIds array contains all the ids of the codes of that particular passage.
-  const [passages, setPassages] = useState([
-    { position: 0, text: rawData, codeIds: [] }
-  ]);
-  // The codes are stored in the separate "codes" state as: {id: <int>, code: <string>}
-  // NOTE: This is not like the codebook, which contains all codes only once.
-  // Instead, all inserted codes (even duplicates) are stored in this state with a unique id.
-  const [codes, setCodes] = useState([]);
+  const [activeCodeId, setActiveCodeId] = useState(null);
 
   // Moving to the next step should be allowed by default in this step
   useEffect(() => {
@@ -32,8 +24,10 @@ const CodingCardContent = () => {
   // This function gets called when the user highlights a passage in the workspace
   const handleMouseUp = () => {
     const selection = window.getSelection();
-    const sourceText = selection.anchorNode.textContent;
-    const sourcePosition = Number(selection.anchorNode.parentNode.id);  // The id is equivalent to the position of the sourcePassage in the passages state variable
+    const startNode = selection.anchorNode;
+    const endNode = selection.focusNode;
+    const sourceText = startNode.textContent;
+    const sourcePosition = Number(startNode.parentNode.id);  // The id is equivalent to the position of the sourcePassage in the passages state variable
     const sourcePassage = passages.find(p => p.position === sourcePosition);
     const range = selection.getRangeAt(0);
     const beforeHighlighted = sourceText.slice(0, range.startOffset);
@@ -42,6 +36,16 @@ const CodingCardContent = () => {
 
     // If passage is empty, do nothing
     if (highlighted.trim() === "") {
+      return;
+    }
+
+    // Make sure the highlighted passage does not overlap with a code blob
+    if (
+      startNode.parentElement.closest('[data-code-id]') || 
+      endNode.parentElement.closest('[data-code-id]') ||
+      startNode.parentElement.tagName === 'INPUT' ||
+      endNode.parentElement.tagName === 'INPUT'
+    ) {
       return;
     }
 
@@ -96,6 +100,10 @@ const CodingCardContent = () => {
   const handleKeyDown = (e) => {
     if (["Enter", "Tab", "Escape"].includes(e.key)) {
       e.preventDefault();  // Prevents default behaviour of the tab button
+      /*if (codes.find(c => c.id === activeCodeId).code.length === 0) {
+        deleteCode(activeCodeId);
+        return;
+      }*/
       e.target.blur();
       setActiveCodeId(null);
       return;
@@ -166,7 +174,12 @@ const CodingCardContent = () => {
     const codeObject = codes.find((c) => c.id === codeId);
     if (!codeObject) return null;
     return (
-      <span key={`code${codeId}`}>
+      <span 
+        key={`code${codeId}`} 
+        data-code-id={codeId}
+        onMouseDown={e => e.stopPropagation()}
+        className={`inline-flex items-center w-fit pl-2 ${(activeCodeId !== codeId) && "pr-2"} bg-tertiaryContainer border border-gray-500 rounded-full hover:bg-tertiaryContainerHover focus:bg-tertiaryContainerHover focus:outline-none focus:ring-1 focus:ring-onBackground`}
+      >
         <input
           value={codeObject.code}
           size={Math.max(codeObject.code.length + 1, 8)}
@@ -178,8 +191,17 @@ const CodingCardContent = () => {
           onFocus={() => setActiveCodeId(codeId)}
           onKeyDown={handleKeyDown}
           ref={activeCodeId === codeId ? activeCodeRef : null} // attach ref only to active code
-          className="bg-tertiaryContainer border border-gray-500 rounded-full px-2 mr-1.5 mt-1 hover:bg-tertiaryContainerHover focus:bg-tertiaryContainerHover focus:outline-none focus:ring-1 focus:ring-onBackground"
+          className="bg-transparent border-none outline-none"
         />
+        {activeCodeId === codeId &&
+          <button
+            type="button"
+            onClick={() => deleteCode(codeId)}
+            className="pr-1.5 bg-transparent text-gray-500 hover:text-gray-800 cursor-pointer"
+          >
+            <XMarkIcon className="size-5" />
+          </button>
+        }
         {hasTrailingBreak && <br/>}
       </span>
     );
@@ -196,7 +218,7 @@ const CodingCardContent = () => {
     const endsWithLineBreak = p.text.endsWith("\n");
 
     return (
-      <React.Fragment key={p.position}>
+      <span key={p.position}>
         <span
           key={p.position}
           id={p.position}
@@ -208,7 +230,23 @@ const CodingCardContent = () => {
         {p.codeIds?.length > 0 && p.codeIds.map((codeId) => {
           return renderCodeBlob(codeId, endsWithLineBreak);
         })}
-      </React.Fragment>
+      </span>
+    );
+  }
+
+  const renderCodeBookContents = () => {
+    // Create a Set from codes to remove duplicates. Do not include the code that is currently being edited
+    const uniqueCodes = new Set(codes.map(c => c.code).filter(c => c.trim() !== ""));
+    // Map the unique items the list items of an unordered list
+    return (
+      <div className="flex flex-col w-full gap-2 px-6 py-4">
+        {[...uniqueCodes].map(code => (
+          <div key={code} className="flex justify-between items-center gap-10">
+            <span>{code.trim()}</span>
+            <span>{`(${codes.filter(c => c.code.trim() === code.trim()).length})`}</span>
+          </div>
+        ))}
+      </div>
     );
   }
 
@@ -219,12 +257,12 @@ const CodingCardContent = () => {
           renderPassage(p)
         ))}
       </div>
-      <div className="flex flex-col items-center w-fit h-fit min-w-60 sticky top-5 rounded-xl border-1 border-outline">
+      <div className="flex flex-col items-center w-fit h-fit min-w-50 max-w-sm sticky top-5 rounded-xl border-1 border-outline">
         <div className="flex h-fit w-full items-center justify-center px-4.5 pt-4 pb-3.5 border-b border-outline rounded-t-xl bg-container text-primary">
           <p className="text-lg font-semibold">Codebook</p>
         </div>
-        {codebook[0].length === 0 && <p className="px-4.5 py-4 ">No codes yet</p>}
-        {codebook[0].length > 0 && (codebook[0].map((code) => <p>{code}</p>))}
+        {(codes.length === 0 || ((codes.length === 1) && codes[0].code === "")) && <p className="px-4.5 py-4 ">No codes yet</p>}
+        {codes.some(c => c.code.trim() !== "") && renderCodeBookContents()}
       </div>
     </div>
   );
