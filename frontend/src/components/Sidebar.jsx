@@ -1,6 +1,6 @@
 import StepIndicator from "./StepIndicator"
 
-const Sidebar = ({ stepIdx }) => {
+const Sidebar = () => {
   return (
     <div className="flex flex-col gap-6 p-12 bg-container">
       <StepIndicator label={"Upload Data"} idx={1}/>
