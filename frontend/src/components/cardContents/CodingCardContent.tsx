@@ -10,7 +10,21 @@ const CodingCardContent = () => {
   if (!context) {
     throw new Error("WorkflowContext must be used within a WorkflowProvider");
   }
-  const { passages, setPassages, codes, setCodes, codebook, setCodebook, nextCodeId, setNextCodeId, nextPassageId, setNextPassageId, setProceedAvailable, aiSuggestionsEnabled, setAiSuggestionsEnabled } = context;
+  const {
+    passages,
+    setPassages,
+    codes,
+    setCodes,
+    codebook,
+    setCodebook,
+    nextCodeId,
+    setNextCodeId,
+    nextPassageId,
+    setNextPassageId,
+    setProceedAvailable,
+    aiSuggestionsEnabled,
+    setAiSuggestionsEnabled,
+  } = context;
 
   const [activeCodeId, setActiveCodeId] = useState<number | null>(null);
 
@@ -25,11 +39,11 @@ const CodingCardContent = () => {
   //    This removes the need to use the onBlur event on the input of the code blob.
   const activeCodeRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-  if (activeCodeRef.current) {
-    activeCodeRef.current.focus();
-  }
-  setCodebook(new Set(codes.map(c => c.code)));
-}, [activeCodeId]);
+    if (activeCodeRef.current) {
+      activeCodeRef.current.focus();
+    }
+    setCodebook(new Set(codes.map((c) => c.code)));
+  }, [activeCodeId]);
 
   /**
    * This function gets called when the user highlights a passage in the coding interface.
@@ -48,21 +62,29 @@ const CodingCardContent = () => {
       return;
     }
     const sourceText = startNode.textContent;
-    const sourceId = startNode.parentNode instanceof HTMLElement
-      ? Number(startNode.parentNode.id)  // The id element contains the order of the passage
-      : undefined;
-    const sourcePassage = passages.find(p => p.id === sourceId);
+    const sourceId =
+      startNode.parentNode instanceof HTMLElement
+        ? Number(startNode.parentNode.id) // The id element contains the order of the passage
+        : undefined;
+    const sourcePassage = passages.find((p) => p.id === sourceId);
     const sourceOrder = sourcePassage?.order;
-    if (!sourcePassage || !sourceText  || sourceId === undefined || sourceOrder === undefined) {
+    if (
+      !sourcePassage ||
+      !sourceText ||
+      sourceId === undefined ||
+      sourceOrder === undefined
+    ) {
       console.log("SourceText, passage, its id, or order undefined.");
       return;
     }
-    
+
     // 2. Validate selection
     // If selection spans multiple nodes OR sourcePassage already has codes (i.e. has been highlighted before):
     //     alert user about overlapping passages and return early
     if (startNode !== endNode || sourcePassage.codeIds.length > 0) {
-      alert("Overlapping passages not allowed! Please select a new passage or click an existing code to edit it.");
+      alert(
+        "Overlapping passages not allowed! Please select a new passage or click an existing code to edit it."
+      );
       return;
     }
 
@@ -77,7 +99,9 @@ const CodingCardContent = () => {
     const highlighted = sourceText.slice(startOffset, endOffset);
     const afterHighlighted = sourceText.slice(endOffset);
     if (highlighted.trim().length === 0) {
-      console.log("Length of highlight is 0, or highlight contains only whitespace");
+      console.log(
+        "Length of highlight is 0, or highlight contains only whitespace"
+      );
       return;
     }
 
@@ -94,26 +118,46 @@ const CodingCardContent = () => {
     //     attach newCodeId to sourcePassage.codeIds
     if (beforeHighlighted.length === 0 && afterHighlighted.length === 0) {
       newPassages = [
-        { ...sourcePassage, codeIds: sourcePassage.codeIds.concat(newCodeId) }
-      ]
+        { ...sourcePassage, codeIds: sourcePassage.codeIds.concat(newCodeId) },
+      ];
       passageIdOfNewCode = sourcePassage.id;
     }
     // Case B: highlight at start, or right after another highlighted passage:
     //     new passages = [highlighted with newCodeId in codeIds, afterHighlighted without codes]
     else if (beforeHighlighted.length === 0) {
       newPassages = [
-        { id: newPassageId++, order: sourceOrder, text: highlighted, codeIds: [newCodeId] },
-        { id: newPassageId++, order: sourceOrder + 1, text: afterHighlighted, codeIds: [] }
-      ]
+        {
+          id: newPassageId++,
+          order: sourceOrder,
+          text: highlighted,
+          codeIds: [newCodeId],
+        },
+        {
+          id: newPassageId++,
+          order: sourceOrder + 1,
+          text: afterHighlighted,
+          codeIds: [],
+        },
+      ];
       passageIdOfNewCode = newPassageId - 2;
     }
     // Case C: highlight at end, or right before another highlighted passage:
     //     new passages = [beforeHighlighted without codes, highlighted with newCodeId in codeIds]
     else if (afterHighlighted.length === 0) {
       newPassages = [
-        { id: newPassageId++, order: sourceOrder, text: beforeHighlighted, codeIds: [] },
-        { id: newPassageId++, order: sourceOrder + 1, text: highlighted, codeIds: [newCodeId] },
-      ]
+        {
+          id: newPassageId++,
+          order: sourceOrder,
+          text: beforeHighlighted,
+          codeIds: [],
+        },
+        {
+          id: newPassageId++,
+          order: sourceOrder + 1,
+          text: highlighted,
+          codeIds: [newCodeId],
+        },
+      ];
       passageIdOfNewCode = newPassageId - 1;
     }
     // Case D: highlight in the middle of an unhighlighted passage:
@@ -121,10 +165,25 @@ const CodingCardContent = () => {
     else {
       passageIdOfNewCode = newPassageId;
       newPassages = [
-        { id: newPassageId++, order: sourceOrder, text: beforeHighlighted, codeIds: [] },
-        { id: newPassageId++, order: sourceOrder + 1, text: highlighted, codeIds: [newCodeId] },
-        { id: newPassageId++, order: sourceOrder + 2, text: afterHighlighted, codeIds: [] }
-      ]
+        {
+          id: newPassageId++,
+          order: sourceOrder,
+          text: beforeHighlighted,
+          codeIds: [],
+        },
+        {
+          id: newPassageId++,
+          order: sourceOrder + 1,
+          text: highlighted,
+          codeIds: [newCodeId],
+        },
+        {
+          id: newPassageId++,
+          order: sourceOrder + 2,
+          text: afterHighlighted,
+          codeIds: [],
+        },
+      ];
       passageIdOfNewCode = newPassageId - 2;
     }
 
@@ -133,13 +192,17 @@ const CodingCardContent = () => {
     setNextPassageId(newPassageId);
 
     // 7. Update passages state
-    setPassages(prev => {
+    setPassages((prev) => {
       // Remove original sourcepassage, increment positions (order) of subsequent passages, and insert new passages
       const updated = [
-        ...prev.filter(p => p.order !== sourceOrder).map(p =>
-          p.order > sourceOrder ? { ...p, order: p.order + (newPassages.length - 1) } : p
-        ),
-        ...newPassages
+        ...prev
+          .filter((p) => p.order !== sourceOrder)
+          .map((p) =>
+            p.order > sourceOrder
+              ? { ...p, order: p.order + (newPassages.length - 1) }
+              : p
+          ),
+        ...newPassages,
       ];
       // Sort by order
       const sorted = updated.sort((a, b) => a.order - b.order);
@@ -148,7 +211,10 @@ const CodingCardContent = () => {
     });
 
     // 8. Add the new code to the codes state and the codebook
-    setCodes(prev => [...prev, {id: newCodeId, passageId: newPassageId.toString(), code: ""}]);
+    setCodes((prev) => [
+      ...prev,
+      { id: newCodeId, passageId: newPassageId.toString(), code: "" },
+    ]);
 
     // 9. Newly added code should be active -> update activeCodeId
     setActiveCodeId(newCodeId);
@@ -160,28 +226,30 @@ const CodingCardContent = () => {
    */
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (activeCodeId === null) return;
-    if (!e.currentTarget) return
+    if (!e.currentTarget) return;
     const newValue = e.currentTarget.value;
     if (["Enter", "Tab", "Escape"].includes(e.key)) {
-      e.preventDefault();  // Prevents default behaviour of the tab button
-      const codeObject: Code | undefined = codes.find(c => c.id === activeCodeId);
+      e.preventDefault(); // Prevents default behaviour of the tab button
+      const codeObject: Code | undefined = codes.find(
+        (c) => c.id === activeCodeId
+      );
       if (!codeObject) return;
-      const {id, code} = codeObject;
+      const { id, code } = codeObject;
       if (id === undefined || code === undefined) return;
       if (codeObject.code.length === 0) {
         deleteCode(activeCodeId);
         return;
       }
-      setCodebook(prev => new Set([...prev, newValue]));
+      setCodebook((prev) => new Set([...prev, newValue]));
       setActiveCodeId(null);
       e.currentTarget.blur();
       return;
-    } 
+    }
     if (e.key === "Delete") {
       e.preventDefault();
       deleteCode(activeCodeId);
     }
-  }
+  };
 
   /**
    * Updates the value of a specific code.
@@ -189,21 +257,88 @@ const CodingCardContent = () => {
    * @param newValue - the new value of the code
    */
   const updateCode = (id: number, newValue: string) => {
-    setCodes(prev =>
-      prev.map(c => (c.id === id ? { ...c, code: newValue } : c))
+    setCodes((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, code: newValue } : c))
     );
-  }
+  };
 
   /**
    * Deletes a code.
    * @param id - the id of the code to be deleted
    */
   const deleteCode = (id: number) => {
-    // Remember to update codebook as well
+    // 1. Remove the code from the codes array
+    const updatedCodes = codes.filter((c) => c.id !== id);
+    setCodes(() => updatedCodes);
+
+    // 2. Update the codebook
+    // After deleting, recalculate the codebook from the remaining codes
+    setCodebook(new Set(updatedCodes.map((c) => c.code)));
+
+    // 3. Find the passage that contains this codeId
+    const passage = passages.find((p) => p.codeIds.includes(id));
+    if (!passage) return;
+
+    // 4. Remove the codeId from the passage’s codeIds
+    const updatedPassage = {
+      ...passage,
+      codeIds: passage.codeIds.filter((cid) => cid !== id),
+    };
+
+    // 5. Check whether the updated passage still has codeIds left
+    // If it still has other codes, simply replace it in the passages array and return
+    if (updatedPassage.codeIds.length > 0) {
+      setPassages((prev) =>
+        prev.map((p) => (p.id === updatedPassage.id ? updatedPassage : p))
+      );
+      return;
+    }
+
+    // 6. If the passage has no codes left:
+    //    Check its neighbors based on order
+    const prevPassage = passages.find(
+      (p) => p.order === updatedPassage.order - 1
+    );
+    const nextPassage = passages.find(
+      (p) => p.order === updatedPassage.order + 1
+    );
+    const mergePrev = prevPassage && prevPassage.codeIds.length === 0;
+    const mergeNext = nextPassage && nextPassage.codeIds.length === 0;
+
+    // 7. Determine merged text and which passages to remove from the passages state
+    let mergedText = updatedPassage.text;
+    let passagesToRemove = [updatedPassage.id];
+    if (mergePrev) {
+      mergedText = prevPassage.text + mergedText;
+      passagesToRemove.push(prevPassage.id);
+    }
+    if (mergeNext) {
+      mergedText = mergedText + nextPassage.text;
+      passagesToRemove.push(nextPassage.id);
+    }
+
+    // 8. Create a new merged passage (empty codeIds)
+    const newMergedPassage = {
+      id: updatedPassage.id, // reuse the current one’s id
+      order: mergePrev ? prevPassage.order : updatedPassage.order,
+      text: mergedText,
+      codeIds: [],
+    };
+
+    // 9. Update the passages state:
+    setPassages((prev) => {
+      const filtered = prev.filter((p) => !passagesToRemove.includes(p.id));
+      const inserted = [...filtered, newMergedPassage];
+      const sorted = inserted.sort((a, b) => a.order - b.order);
+      return sorted.map((p, i) => ({ ...p, order: i }));
+    });
+
+    // 10. No code should be active after deletion -> set activeCodeId to null
+    setActiveCodeId(null);
   };
 
   /**
-   * 
+   *
    * @param codeId - the id of the code to be rendered
    * @param hasTrailingBreak - a boolean value indicating whether or not the highlight ends in a line break
    * @returns a jsx element containing the code of the code blob
@@ -212,8 +347,8 @@ const CodingCardContent = () => {
     const codeObject = codes.find((c) => c.id === codeId);
     if (!codeObject) return null;
     return (
-      <span 
-        key={codeId} 
+      <span
+        key={codeId}
         className={`inline-flex items-center w-fit px-2 bg-tertiaryContainer border border-gray-500 rounded-full hover:bg-tertiaryContainerHover focus:bg-tertiaryContainerHover focus:outline-none focus:ring-1 focus:ring-onBackground`}
       >
         <input
@@ -240,10 +375,10 @@ const CodingCardContent = () => {
         >
           <XMarkIcon className="size-5" />
         </button>
-        {hasTrailingBreak && <br/>}
+        {hasTrailingBreak && <br />}
       </span>
     );
-  }; 
+  };
 
   /**
    * Adjusts the width of a code input to fit its current text.
@@ -254,10 +389,10 @@ const CodingCardContent = () => {
     const target = e.target;
     target.style.width = "1px";
     target.style.width = `${target.scrollWidth + 4}px`;
-  }
+  };
 
   /**
-   * 
+   *
    * @param p - the passage to be rendered
    * @returns - the jsx code of the passage
    */
@@ -269,17 +404,24 @@ const CodingCardContent = () => {
       <span key={p.id}>
         <span
           id={p.id.toString()}
-          onMouseDown={() => p.codeIds?.length > 0 && setActiveCodeId(p.codeIds[0])}
-          className={p.codeIds?.length > 0 ? "bg-tertiaryContainer hover:bg-tertiaryContainerHover cursor-pointer rounded-sm px-1 w-fit mr-1" : ""}
+          onMouseDown={() =>
+            p.codeIds?.length > 0 && setActiveCodeId(p.codeIds[0])
+          }
+          className={
+            p.codeIds?.length > 0
+              ? "bg-tertiaryContainer hover:bg-tertiaryContainerHover cursor-pointer rounded-sm px-1 w-fit mr-1"
+              : ""
+          }
         >
           {p.text}
         </span>
-        {p.codeIds?.length > 0 && p.codeIds.map((codeId) => {
-          return renderCodeBlob(codeId, endsWithLineBreak);
-        })}
+        {p.codeIds?.length > 0 &&
+          p.codeIds.map((codeId) => {
+            return renderCodeBlob(codeId, endsWithLineBreak);
+          })}
       </span>
     );
-  }
+  };
 
   /**
    * Used for rendering the codebook
@@ -288,28 +430,37 @@ const CodingCardContent = () => {
   const renderCodeBookContents = () => {
     const codebookArray = Array.from(codebook);
     return (
-      <div className="flex flex-col w-full gap-2 px-6 py-4">
-        {(codebookArray.length === 0 || !codebookArray.filter(c => c.trim().length > 0)) && <p>No codes yet</p>}
-        {codebookArray.map(code => (
-          <div key={code} className="flex justify-between items-center gap-10">
-            {code.trim().length > 0 && 
+      <div className="flex flex-col w-full px-6 py-4 items-center">
+        {codebookArray.filter((code) => code.trim().length > 0).length ===
+          0 && <p>No codes yet</p>}
+        {codebookArray.map((code) => (
+          <div
+            key={code}
+            className="flex justify-between items-center gap-10 w-full"
+          >
+            {code.trim().length > 0 && (
               <>
-                <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1.5 py-1">
                   {code.trim()}
-                  <PencilSquareIcon className="w-6 h-6 p-0.5 flex-shrink-0 rounded-sm text-[#007a60] hover:bg-tertiary/10 cursor-pointer"/>
+                  <PencilSquareIcon className="w-6 h-6 p-0.5 flex-shrink-0 rounded-sm text-[#007a60] hover:bg-tertiary/10 cursor-pointer" />
                 </span>
-                <span>{`(${codes.filter(c => c.code.trim() === code.trim()).length})`}</span>
+                <span>{`(${
+                  codes.filter((c) => c.code.trim() === code.trim()).length
+                })`}</span>
               </>
-            }
+            )}
           </div>
         ))}
       </div>
     );
-  }
+  };
 
   return (
     <div className="flex w-full gap-7">
-      <div onMouseUp={handleHighlight} className="flex-1 rounded-xl border-1 border-outline p-8 text-onBackground text-base whitespace-pre-wrap">
+      <div
+        onMouseUp={handleHighlight}
+        className="flex-1 rounded-xl border-1 border-outline p-8 text-onBackground text-base whitespace-pre-wrap"
+      >
         {passages.map((p) => renderPassage(p))}
       </div>
       <div className="flex flex-col gap-4 sticky top-5 h-fit">
@@ -321,11 +472,14 @@ const CodingCardContent = () => {
         </div>
         <div className="flex gap-2 items-center justify-center rounded-xl border-1 border-outline p-6">
           <p>AI suggestions</p>
-          <ToggleSwitch booleanState={aiSuggestionsEnabled} setBooleanState={setAiSuggestionsEnabled}/>
+          <ToggleSwitch
+            booleanState={aiSuggestionsEnabled}
+            setBooleanState={setAiSuggestionsEnabled}
+          />
         </div>
       </div>
     </div>
   );
-}
+};
 
 export default CodingCardContent;
