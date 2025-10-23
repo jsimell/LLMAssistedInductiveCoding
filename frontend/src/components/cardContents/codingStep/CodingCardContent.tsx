@@ -1,10 +1,21 @@
 import { useState, useContext, useEffect, useRef, ChangeEvent } from "react";
-import { Code, Passage, WorkflowContext } from "../../context/WorkflowContext";
+import { Code, Passage, WorkflowContext } from "../../../context/WorkflowContext";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { PencilSquareIcon } from "@heroicons/react/24/solid";
-import ToggleSwitch from "../ToggleSwitch";
+import ToggleSwitch from "../../ToggleSwitch";
+import Codebook from "./Codebook";
+import { useCodeManager } from "./useCodeManager";
+import CodeBlob from "./CodeBlob";
 
 const CodingCardContent = () => {
+  // Local state for tracking the currently active code input
+  const [activeCodeId, setActiveCodeId] = useState<number | null>(null);
+
+  const { deleteCode, updateCode, handleKeyDown } = useCodeManager({
+    activeCodeId,
+    setActiveCodeId,
+  });
+
   // Get global states and setters from the context
   const context = useContext(WorkflowContext);
   if (!context) {
@@ -26,7 +37,6 @@ const CodingCardContent = () => {
     setAiSuggestionsEnabled,
   } = context;
 
-  const [activeCodeId, setActiveCodeId] = useState<number | null>(null);
 
   // Moving to the next step should be allowed by default in this step
   useEffect(() => {
@@ -231,177 +241,6 @@ const CodingCardContent = () => {
   };
 
   /**
-   * Used for handling a keyboard event.
-   * @param e - the keyboard event that triggered the function call
-   */
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (activeCodeId === null) return;
-    if (!e.currentTarget) return;
-    const newValue = e.currentTarget.value;
-    if (["Enter", "Tab", "Escape"].includes(e.key)) {
-      e.preventDefault(); // Prevents default behaviour of the tab button
-      const codeObject: Code | undefined = codes.find(
-        (c) => c.id === activeCodeId
-      );
-      if (!codeObject) return;
-      const { id, code } = codeObject;
-      if (id === undefined || code === undefined) return;
-      if (codeObject.code.length === 0) {
-        deleteCode(activeCodeId);
-        return;
-      }
-      setCodebook((prev) => new Set([...prev, newValue]));
-      setActiveCodeId(null);
-      e.currentTarget.blur();
-      return;
-    }
-    if (e.key === "Delete") {
-      e.preventDefault();
-      deleteCode(activeCodeId);
-    }
-  };
-
-  /**
-   * Updates the value of a specific code.
-   * @param id - the id of the code to be updated
-   * @param newValue - the new value of the code
-   */
-  const updateCode = (id: number, newValue: string) => {
-    setCodes((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, code: newValue } : c))
-    );
-  };
-
-  /**
-   * Deletes a code.
-   * @param id - the id of the code to be deleted
-   */
-  const deleteCode = (id: number) => {
-    // 1. Remove the code from the codes array
-    const updatedCodes = codes.filter((c) => c.id !== id);
-    setCodes(() => updatedCodes);
-
-    // 2. Update the codebook
-    // After deleting, recalculate the codebook from the remaining codes
-    setCodebook(new Set(updatedCodes.map((c) => c.code)));
-
-    // 3. Find the passage that contains this codeId
-    const passage = passages.find((p) => p.codeIds.includes(id));
-    if (!passage) return;
-
-    // 4. Remove the codeId from the passage’s codeIds
-    const updatedPassage = {
-      ...passage,
-      codeIds: passage.codeIds.filter((cid) => cid !== id),
-    };
-
-    // 5. Check whether the updated passage still has codeIds left
-    // If it still has other codes, simply replace it in the passages array and return
-    if (updatedPassage.codeIds.length > 0) {
-      setPassages((prev) =>
-        prev.map((p) => (p.id === updatedPassage.id ? updatedPassage : p))
-      );
-      return;
-    }
-
-    // 6. If the passage has no codes left:
-    //    Check its neighbors based on order
-    const prevPassage = passages.find(
-      (p) => p.order === updatedPassage.order - 1
-    );
-    const nextPassage = passages.find(
-      (p) => p.order === updatedPassage.order + 1
-    );
-    const mergePrev = prevPassage && prevPassage.codeIds.length === 0;
-    const mergeNext = nextPassage && nextPassage.codeIds.length === 0;
-
-    // 7. Determine merged text and which passages to remove from the passages state
-    let mergedText = updatedPassage.text;
-    let passagesToRemove = [updatedPassage.id];
-    if (mergePrev) {
-      mergedText = prevPassage.text + mergedText;
-      passagesToRemove.push(prevPassage.id);
-    }
-    if (mergeNext) {
-      mergedText = mergedText + nextPassage.text;
-      passagesToRemove.push(nextPassage.id);
-    }
-
-    // 8. Create a new merged passage (empty codeIds)
-    const newMergedPassage = {
-      id: updatedPassage.id, // reuse the current one’s id
-      order: mergePrev ? prevPassage.order : updatedPassage.order,
-      text: mergedText,
-      codeIds: [],
-    };
-
-    // 9. Update the passages state:
-    setPassages((prev) => {
-      const filtered = prev.filter((p) => !passagesToRemove.includes(p.id));
-      const inserted = [...filtered, newMergedPassage];
-      const sorted = inserted.sort((a, b) => a.order - b.order);
-      return sorted.map((p, i) => ({ ...p, order: i }));
-    });
-
-    // 10. No code should be active after deletion -> set activeCodeId to null
-    setActiveCodeId(null);
-  };
-
-  /**
-   *
-   * @param codeId - the id of the code to be rendered
-   * @param hasTrailingBreak - a boolean value indicating whether or not the highlight ends in a line break
-   * @returns a jsx element containing the code of the code blob
-   */
-  const renderCodeBlob = (codeId: number, hasTrailingBreak: boolean) => {
-    const codeObject = codes.find((c) => c.id === codeId);
-    if (!codeObject) return null;
-    return (
-      <span
-        key={codeId}
-        className={`inline-flex items-center w-fit px-2 bg-tertiaryContainer border border-gray-500 rounded-full hover:bg-tertiaryContainerHover focus:bg-tertiaryContainerHover focus:outline-none focus:ring-1 focus:ring-onBackground`}
-      >
-        <input
-          value={codeObject.code}
-          size={Math.max(codeObject.code.length + 1, 8)}
-          placeholder="Type code..."
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-            updateCode(codeId, e.target.value);
-            handleCodeBlobSizing(e);
-          }}
-          onFocus={() => setActiveCodeId(codeId)}
-          onBlur={(e) => {
-            updateCode(codeId, e.currentTarget.value);
-            setActiveCodeId(null);
-          }}
-          onKeyDown={(e) => handleKeyDown(e)}
-          ref={activeCodeId === codeId ? activeCodeRef : null} // used for ensuring that the input gets focused when it is first created
-          className="bg-transparent border-none outline-none"
-        />
-        <button
-          type="button"
-          onClick={() => deleteCode(codeId)}
-          className="bg-transparent text-gray-500 hover:text-gray-800 cursor-pointer"
-        >
-          <XMarkIcon className="size-5" />
-        </button>
-        {hasTrailingBreak && <br />}
-      </span>
-    );
-  };
-
-  /**
-   * Adjusts the width of a code input to fit its current text.
-   *
-   * @param e - change event from the code input (`HTMLInputElement`).
-   */
-  const handleCodeBlobSizing = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const target = e.target;
-    target.style.width = "1px";
-    target.style.width = `${target.scrollWidth + 4}px`;
-  };
-
-  /**
    *
    * @param p - the passage to be rendered
    * @returns - the jsx code of the passage
@@ -426,42 +265,10 @@ const CodingCardContent = () => {
           {p.text}
         </span>
         {p.codeIds?.length > 0 &&
-          p.codeIds.map((codeId) => {
-            return renderCodeBlob(codeId, endsWithLineBreak);
-          })}
+          p.codeIds.map((codeId) => 
+            <CodeBlob codeId={codeId} hasTrailingBreak={endsWithLineBreak} activeCodeId={activeCodeId} setActiveCodeId={setActiveCodeId} activeCodeRef={activeCodeRef}/>
+          )}
       </span>
-    );
-  };
-
-  /**
-   * Used for rendering the codebook
-   * @returns - the jsx code of the codebook
-   */
-  const renderCodeBookContents = () => {
-    const codebookArray = Array.from(codebook);
-    return (
-      <div className="flex flex-col w-full px-6 py-4 items-center">
-        {codebookArray.filter((code) => code.trim().length > 0).length ===
-          0 && <p>No codes yet</p>}
-        {codebookArray.map((code) => (
-          <div
-            key={code}
-            className="flex justify-between items-center gap-10 w-full"
-          >
-            {code.trim().length > 0 && (
-              <>
-                <span className="flex items-center gap-1.5 py-1">
-                  {code.trim()}
-                  <PencilSquareIcon className="w-6 h-6 p-0.5 flex-shrink-0 rounded-sm text-[#007a60] hover:bg-tertiary/10 cursor-pointer" />
-                </span>
-                <span>{`(${
-                  codes.filter((c) => c.code.trim() === code.trim()).length
-                })`}</span>
-              </>
-            )}
-          </div>
-        ))}
-      </div>
     );
   };
 
@@ -475,12 +282,7 @@ const CodingCardContent = () => {
         {passages.map((p) => renderPassage(p))}
       </div>
       <div className="flex flex-col gap-4 sticky top-5 h-fit">
-        <div className="flex flex-col items-center w-full h-fit min-w-50 max-w-sm rounded-xl border-1 border-outline">
-          <div className="flex h-fit w-full items-center justify-center px-4.5 pt-4 pb-3.5 border-b border-outline rounded-t-xl bg-container text-primary">
-            <p className="text-lg font-semibold">Codebook</p>
-          </div>
-          {renderCodeBookContents()}
-        </div>
+        <Codebook />
         <div className="flex gap-2 items-center justify-center rounded-xl border-1 border-outline p-6">
           <p>AI suggestions</p>
           <ToggleSwitch
