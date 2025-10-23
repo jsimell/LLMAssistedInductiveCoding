@@ -10,7 +10,7 @@ if (!rootElement) {
   throw new Error("Root element not found");
 }
 
-createRoot(document.getElementById('root')!).render(
+createRoot(rootElement).render(
   <StrictMode>
     <WorkflowProvider>
       <App />

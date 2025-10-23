@@ -1,14 +1,14 @@
-import React, { createContext, useState, useEffect } from "react";
+import React, { createContext, useState, useEffect, use } from "react";
 
 export interface Passage {
-  uid: number;
+  id: number; // A unique id
   order: number;
   text: string;
   codeIds: number[];
 }
 
 export interface Code {
-  id: number;
+  id: number; // A unique id
   passageId: string;
   code: string;
 }
@@ -57,6 +57,9 @@ export interface WorkflowContextType {
 
   nextPassageId: number;
   setNextPassageId: Setter<number>;
+
+  codebook: Set<string>;
+  setCodebook: Setter<Set<string>>;
 }
 
 export function WorkflowProvider({ children }: { children: React.ReactNode }) {
@@ -73,13 +76,14 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
   const [nextCodeId, setNextCodeId] = useState<number>(0);  // Next unique id for a new code
   const [nextPassageId, setNextPassageId] = useState<number>(0);   // Next unique id for a new passage
   const [passages, setPassages] = useState<Passage[]>([]);  // The passages of the data coding phase
-  const [codes, setCodes] = useState<Code[]>([]);  // The codes of the data coding phase
+  const [codes, setCodes] = useState<Code[]>([]);  // The codes of the data coding phase (contains all code instances, even duplicates)
+  const [codebook, setCodebook] = useState<Set<string>>(new Set()) // Contains all unique codes
 
   // Set the raw data as the first passage once it is uploaded
   useEffect(() => {
   if (rawData) {
     setNextPassageId(prevId => {
-      setPassages([{ uid: prevId, order: 0, text: rawData, codeIds: [] }]);
+      setPassages([{ id: prevId, order: 0, text: rawData, codeIds: [] }]);
       return prevId + 1;
     })
   };
@@ -99,6 +103,7 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
     codes, setCodes,
     nextCodeId, setNextCodeId,
     nextPassageId, setNextPassageId,
+    codebook, setCodebook
   };
 
   // Make the states available to all children components
