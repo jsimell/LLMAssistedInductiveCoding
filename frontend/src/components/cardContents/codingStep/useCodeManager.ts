@@ -6,6 +6,14 @@ interface UseCodeManagerProps {
   setActiveCodeId: React.Dispatch<React.SetStateAction<number | null>>;
 }
 
+/**
+ * Custom hook to manage data coding-related operations on existing codes, such as updating, deleting codes,
+ * and handling keyboard events during code editing. Code creation is handled elsewhere.
+ *
+ * @param activeCodeId - The ID of the currently active code being edited.
+ * @param setActiveCodeId - Function to update the active code ID.
+ * @returns An object containing functions to update, delete codes, and handle keydown events.
+ */
 export const useCodeManager = ({
   activeCodeId,
   setActiveCodeId,
@@ -21,8 +29,6 @@ export const useCodeManager = ({
     passages,
     setPassages,
     setCodebook,
-    setNextPassageId,
-    setNextCodeId,
   } = context;
 
   /**
