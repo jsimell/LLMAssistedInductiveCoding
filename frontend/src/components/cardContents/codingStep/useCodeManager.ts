@@ -1,10 +1,11 @@
-import { useContext, useCallback } from "react";
+import { useContext } from "react";
 import { Code, WorkflowContext } from "../../../context/WorkflowContext";
 
 interface UseCodeManagerProps {
   activeCodeId: number | null;
   setActiveCodeId: React.Dispatch<React.SetStateAction<number | null>>;
 }
+
 
 /**
  * Custom hook to manage data coding-related operations on existing codes, such as updating, deleting codes,
@@ -32,6 +33,7 @@ export const useCodeManager = ({
     setNextCodeId,
   } = context;
 
+
   /**
    * Updates the value of a specific code. (Note: passages state is updated in the WorkflowContext useEffect)
    * @param id - the id of the code to be updated
@@ -45,6 +47,7 @@ export const useCodeManager = ({
     );
   };
 
+  
   /**
    * Deletes a code.
    * @param id - the id of the code to be deleted
@@ -110,6 +113,7 @@ export const useCodeManager = ({
     setActiveCodeId(null);
   };
 
+
   /**
    * Handles a keyboard event that occurs during code editing.
    * @param e - the keyboard event that triggered the function call
@@ -161,6 +165,7 @@ export const useCodeManager = ({
     }
   };
 
+
   const editAllInstancesOfCode = (oldValue: string, newValue: string) => {
     const idsToEdit = codes
       .filter((c) => c.code === oldValue)
@@ -170,6 +175,7 @@ export const useCodeManager = ({
     );
     setCodes(newArray);
   }
+
 
   const separateMultipleCodes = (codeString: string) => {
     const codeList = codeString.split(";").map((code) => code.trim()).filter((code) => code.length > 0);

@@ -1,5 +1,5 @@
-import { useContext, useCallback } from "react";
-import { Code, Passage, WorkflowContext } from "../../../context/WorkflowContext";
+import { useContext } from "react";
+import { Passage, WorkflowContext } from "../../../context/WorkflowContext";
 
 interface UsePassageSegmenterProps {
   activeCodeId: number | null;
@@ -23,7 +23,6 @@ export const usePassageSegmenter = ({
   }
 
   const {
-    codes,
     setCodes,
     passages,
     setPassages,
