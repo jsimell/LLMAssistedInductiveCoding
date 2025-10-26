@@ -188,7 +188,7 @@ export const useCodeManager = ({
 
 
   const separateMultipleCodes = (codeString: string) => {
-    const codeList = codeString.split(";").map((code) => code.trim()).filter((code) => code.length > 0);
+    const codeList = codeString.split(";").map((code) => code.trim());
     return codeList;
   }
 
