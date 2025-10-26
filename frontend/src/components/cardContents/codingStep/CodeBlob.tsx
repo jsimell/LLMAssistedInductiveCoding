@@ -87,8 +87,11 @@ const CodeBlob = ({
       />
       <button
         type="button"
+        onMouseDown={(e) => {
+          e.preventDefault(); // Prevent input from losing focus
+        }}
         onClick={() => deleteCode(codeId)}
-        className="bg-transparent text-gray-500 hover:text-gray-800 cursor-pointer"
+        className="bg-transparent text-gray-500 rounded-full hover:text-gray-800 hover:bg-onBackground/10 cursor-pointer"
       >
         <XMarkIcon className="size-5" />
       </button>
