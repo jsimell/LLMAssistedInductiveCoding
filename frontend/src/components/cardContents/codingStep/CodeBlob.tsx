@@ -30,7 +30,12 @@ const CodeBlob = ({
     setActiveCodeId,
   });
 
-  useEffect(() => setInputValue(codeObject.code), [codeObject.code]);
+  useEffect(() => {
+      const updatedCodeObject = codes.find((c) => c.id === codeId);
+      if (updatedCodeObject) {
+          setInputValue(updatedCodeObject.code);
+      }
+  }, [codes, codeId]);
 
   // Ensure that code blob input widths adjust to their content when component mounts and when codebook gets updated
   const inputRef = useRef<HTMLInputElement>(null);
@@ -80,7 +85,7 @@ const CodeBlob = ({
         onBlur={(e) => {
           // Basically same as pressing Enter: finalize editing
           updateCode(codeId, e.currentTarget.value);
-          setActiveCodeId(null);
+          // updateCode takes care of deactivating the code -> no need for setActiveCodeId(null) here
         }}
         onKeyDown={(e) => handleKeyDown(e)}
         ref={(el) => {

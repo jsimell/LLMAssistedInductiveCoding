@@ -40,29 +40,28 @@ export const useCodeManager = ({
    * @param newValue - the new value of the code
    */
   const updateCode = (id: number, newValue: string) => {
-    const codeObject = codes.find((c) => c.id === id);
-    if (!codeObject) return;
-
     const codeList = separateMultipleCodes(newValue.trim());
     let newCodeId = nextCodeId;
 
-    // Update existing code with first value, only create new codes for additional values
-    let newCodes = codes.map(c => 
-      c.id === id ? { ...c, code: codeList[0] } : c
-    );
-    
-    // Add new codes for any additional values after semicolons
-    if (codeList.length > 1) {
-      const additionalCodes = codeList.slice(1).map(code => ({
-        id: newCodeId++,
-        passageId: codeObject.passageId,
-        code: code
-      }));
-      newCodes = [...newCodes, ...additionalCodes];
-    }
+    console.log("Updating code", id, "to", codeList);
 
-    setCodes(newCodes);
-    setNextCodeId(newCodeId);
+    setCodes(prev => {
+      const codeObject = prev.find((c) => c.id === id);
+      if (!codeObject) return prev;
+      const newCodes = prev.map(c => 
+        c.id === id ? { ...c, code: codeList[0] } : c
+      );
+      if (codeList.length > 1) {
+        const additionalCodes = codeList.slice(1).map(code => (
+          {id: newCodeId++, passageId: codeObject.passageId, code: code}
+        ));
+        return [...newCodes, ...additionalCodes];
+      };
+      return newCodes;
+    });
+
+    setNextCodeId(prev => prev + codeList.length - 1);
+    setActiveCodeId(null);
     return;
   };
 
@@ -151,12 +150,9 @@ export const useCodeManager = ({
       );
       if (!codeObject) return;
 
-      // Update code handles separation of multiple codes if needed
-      updateCode(activeCodeId, e.currentTarget.value);
-
-      // Deactivate the active code
-      setActiveCodeId(null);
+      // Blur the input, which triggers onBlur, which calls updateCode, and deactivates the code
       e.currentTarget.blur();
+
       return;
     }
 
@@ -180,7 +176,7 @@ export const useCodeManager = ({
 
 
   const separateMultipleCodes = (codeString: string) => {
-    const codeList = codeString.split(";").map((code) => code.trim());
+    const codeList = codeString.split(";").map((code) => code.trim()).filter(Boolean);
     return codeList;
   }
 
