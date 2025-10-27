@@ -60,7 +60,7 @@ export const useCodeManager = ({
       }));
       newCodes = [...newCodes, ...additionalCodes];
     }
-    
+
     setCodes(newCodes);
     setNextCodeId(newCodeId);
     return;
@@ -151,26 +151,9 @@ export const useCodeManager = ({
       );
       if (!codeObject) return;
 
-      // Get the input value and separate multiple codes if needed
-      const inputValue = e.currentTarget.value;
-      const codeList = separateMultipleCodes(inputValue);
+      // Update code handles separation of multiple codes if needed
+      updateCode(activeCodeId, e.currentTarget.value);
 
-      // Add the first code in the codeList into the existing (active) code entry
-      updateCode(activeCodeId, codeList[0]);
-
-      // If there is more than one code, create new code entries for the rest
-      if (codeList.length > 1) {
-        let newCodeId = nextCodeId;
-        let newCodes = codes;
-        codeList.slice(1).forEach((code) => {
-          newCodes = [
-            ...newCodes,
-            { id: newCodeId++, passageId: codeObject.passageId, code: code },
-          ];
-        });
-        setCodes(newCodes);
-        setNextCodeId(newCodeId);
-      }
       // Deactivate the active code
       setActiveCodeId(null);
       e.currentTarget.blur();
