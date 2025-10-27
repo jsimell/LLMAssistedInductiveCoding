@@ -45,13 +45,22 @@ export const useCodeManager = ({
 
     const codeList = separateMultipleCodes(newValue.trim());
     let newCodeId = nextCodeId;
-    let newCodes = codes.filter((c) => c.id !== id);  // Create a new codes array to which updated codes will be added
-    codeList.forEach((code) => {
-      newCodes = [
-        ...newCodes,
-        { id: newCodeId++, passageId: codeObject.passageId, code: code },
-      ];
-    });
+
+    // Update existing code with first value, only create new codes for additional values
+    let newCodes = codes.map(c => 
+      c.id === id ? { ...c, code: codeList[0] } : c
+    );
+    
+    // Add new codes for any additional values after semicolons
+    if (codeList.length > 1) {
+      const additionalCodes = codeList.slice(1).map(code => ({
+        id: newCodeId++,
+        passageId: codeObject.passageId,
+        code: code
+      }));
+      newCodes = [...newCodes, ...additionalCodes];
+    }
+    
     setCodes(newCodes);
     setNextCodeId(newCodeId);
     return;
