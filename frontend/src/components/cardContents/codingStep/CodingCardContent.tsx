@@ -6,8 +6,9 @@ import CodeBlob from "./CodeBlob";
 import { usePassageSegmenter } from "./usePassageSegmenter";
 
 const CodingCardContent = () => {
-  // Local state for tracking the currently active code input
+  // Local state for tracking the currently active passage and code input
   const [activeCodeId, setActiveCodeId] = useState<number | null>(null);
+  const [activePassageId, setActivePassageId] = useState<number | null>(null);
 
   const { createNewPassage } = usePassageSegmenter({
     activeCodeId,
@@ -31,6 +32,17 @@ const CodingCardContent = () => {
   useEffect(() => {
     setProceedAvailable(true);
   }, []);
+
+  // Custom hook to keep activePassageId in sync with activeCodeId
+  useEffect(() => {
+    if (activeCodeId === null) {
+      setActivePassageId(null);
+      return;
+    } else {
+      const activePassage = context.codes.find((c) => c.id === activeCodeId)?.passageId;
+      setActivePassageId(activePassage !== undefined ? activePassage : null);
+    }
+  }, [activeCodeId]);
 
 
   // The purpose of the below is:
@@ -58,14 +70,16 @@ const CodingCardContent = () => {
       <span key={p.id}>
         <span
           id={p.id.toString()}
-          onMouseDown={() =>
-            p.codeIds?.length > 0 && setActiveCodeId(p.codeIds[0])
-          }
-          className={
-            p.codeIds?.length > 0
-              ? "bg-tertiaryContainer hover:bg-tertiaryContainerHover cursor-pointer rounded-sm px-1 w-fit mr-1"
-              : ""
-          }
+          onClick={(e) => {
+            e.stopPropagation();
+            if (p.codeIds?.length > 0) setActiveCodeId(p.codeIds[0]);
+          }}
+          className={`
+            ${p.codeIds?.length > 0
+              ? "bg-tertiaryContainer hover:bg-tertiaryContainerHover cursor-pointer rounded-sm px-1 w-fit mr-1 "
+              : ""}
+            ${activePassageId === p.id ? "bg-tertiaryContainerHover underline decoration-onBackground" : ""}
+              `}
         >
           {p.text}
         </span>
