@@ -37,7 +37,7 @@ const StepNavigationButtons = ({ hidePrev=false, hideNext=false }) => {
             icon={ArrowRightIcon} 
             onClick={handleNextButtonClick} 
             variant={proceedAvailable ? "primary" : "disabled"}
-            title={proceedAvailable ? "Proceed to the next step" : "Please upload a file to proceed"}
+            title={proceedAvailable ? "Proceed to the next step" : "Please complete the required actions to continue"}
           ></Button>
         </div>
       }
