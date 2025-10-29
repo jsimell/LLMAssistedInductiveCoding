@@ -20,6 +20,7 @@ const StepIndicator = ({ label, idx }) => {
         ${isClickable ? "cursor-pointer hover:bg-primary/10 hover:text-primary" : ""}
       `}
       onClick={handleClick}
+      title={isClickable ? `Return to the '${label}' step` : undefined}
     >
       <div className={circleClasses}></div>
       <p className="text-base text-nowrap">{label}</p>
