@@ -64,7 +64,7 @@ const AccessAPICardContent = () => {
       </div>
       <div className="flex flex-col gap-3">
         {apiKey && (
-          <div className="flex justify-center items-center">
+          <div className="flex justify-center items-center gap-2">
             <div>Validated key:</div>
             <div className="flex gap-1 items-center">
               <i>{`${apiKey.slice(0, 11)}•••••${apiKey.slice(-3)}`}</i>
