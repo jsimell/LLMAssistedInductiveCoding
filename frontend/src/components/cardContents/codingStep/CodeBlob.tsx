@@ -75,7 +75,7 @@ const CodeBlob = ({
     >
       <input
         value={inputValue}
-        size={Math.max(codeObject.code.length + 1, 8)}
+        size={codeObject.code ? Math.max(codeObject.code.length + 1, 8) : 8}
         placeholder="Type code..."
         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
           setInputValue(e.currentTarget.value);
