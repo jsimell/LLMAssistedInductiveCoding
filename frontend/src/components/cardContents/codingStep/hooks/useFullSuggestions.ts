@@ -21,7 +21,7 @@ export const useFullSuggestions = () => {
   const { rawData, researchQuestions, contextInfo, passages, codes, codebook, apiKey } = context;
 
   // Local states
-  const [currentSuggestions, setCurrentSuggestions] = useState<CodedPassage[] | null>(null);  // Currently active suggestions
+  const [latestSuggestions, setLatestSuggestions] = useState<CodedPassage[] | null>(null);  // Currently active suggestions
   const [isLoading, setIsLoading] = useState(false);
 
   // Reset suggestions and re-initialize the OpenAI conversation when context changes
@@ -227,7 +227,7 @@ export const useFullSuggestions = () => {
         const parsedSuggestions = parseAiResponse(codedPassages);
 
         // Success (no error caught) - update state and exit
-        setCurrentSuggestions(parsedSuggestions)
+        setLatestSuggestions(parsedSuggestions)
         setIsLoading(false);
         return;
 
@@ -245,7 +245,7 @@ export const useFullSuggestions = () => {
   };
 
   return {
-    currentSuggestions,
+    latestSuggestions,
     isLoading,
     updateSuggestions,
   };
