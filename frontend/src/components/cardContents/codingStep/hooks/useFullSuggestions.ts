@@ -1,9 +1,9 @@
 import { useContext, useEffect, useState } from "react";
 import { WorkflowContext } from "../../../../context/WorkflowContext";
-import { initializeConversation, callOpenAI } from "../../../../services/openai";
+import { statefullyCallOpenAI } from "../../../../services/openai";
 import OpenAI from "openai";
 
-const MAX_RETRY_ATTEMPTS = 3;
+const MAX_RETRY_ATTEMPTS = 2;
 const CONVERSATION_KEY = "full-coding"; // Add this constant
 const OPENAI_MODEL = "gpt-4o-mini"; // Define the model to use
 
@@ -23,26 +23,6 @@ export const useFullSuggestions = () => {
   // Local states
   const [latestSuggestions, setLatestSuggestions] = useState<CodedPassage[] | null>(null);  // Currently active suggestions
   const [isLoading, setIsLoading] = useState(false);
-
-  // Reset suggestions and re-initialize the OpenAI conversation when context changes
-  useEffect(() => {
-    let cancelled = false;
-
-    const init = async () => {
-      try {
-        await initializeConversation(apiKey, constructSystemPrompt(), CONVERSATION_KEY);
-        if (cancelled) return;
-      } catch (err) {
-        if (!cancelled) console.error("OpenAI initialization failed:", err);
-      }
-    };
-
-    init();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [apiKey, rawData, researchQuestions, contextInfo]);
 
 
   /**
@@ -220,7 +200,7 @@ export const useFullSuggestions = () => {
           clarificationMessage = "";
         }
 
-        const codedPassages = await callOpenAI(
+        const codedPassages = await statefullyCallOpenAI(
           apiKey, 
           constructSystemPrompt(), 
           clarificationMessage + constructUserPrompt(),
