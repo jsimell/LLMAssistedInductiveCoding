@@ -38,7 +38,7 @@ const DataUploadCardContent = () => {
         setRawData(fileContent);
         setIsLoading(false);  // hide the loading message
         setProceedAvailable(true);   // allow proceeding to the next step after file has been loaded
-        console.log(`Raw data successfully read from file:`, rawData); // log file contents
+        console.log("Raw data successfully read from file");
       });
 
       // Start reading the content of the file
