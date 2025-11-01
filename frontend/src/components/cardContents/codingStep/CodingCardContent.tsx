@@ -16,7 +16,6 @@ const CodingCardContent = () => {
     setActiveCodeId,
   });
 
-  const { updateSuggestions, latestSuggestions } = useFullSuggestions();
 
   // Get global states and setters from the context
   const context = useContext(WorkflowContext);
@@ -59,7 +58,6 @@ const CodingCardContent = () => {
     }
   }, [activeCodeId]);
 
-
   /**
    *
    * @param p - the passage to be rendered
@@ -78,18 +76,31 @@ const CodingCardContent = () => {
             if (p.codeIds?.length > 0) setActiveCodeId(p.codeIds[0]);
           }}
           className={`
-            ${p.codeIds?.length > 0
-              ? "bg-tertiaryContainer hover:bg-tertiaryContainerHover cursor-pointer rounded-sm px-1 w-fit mr-1 "
-              : ""}
-            ${activePassageId === p.id ? "bg-tertiaryContainerHover underline decoration-onBackground" : ""}
+            ${
+              p.codeIds?.length > 0
+                ? "bg-tertiaryContainer hover:bg-tertiaryContainerHover cursor-pointer rounded-sm px-1 w-fit mr-1 "
+                : ""
+            }
+            ${
+              activePassageId === p.id
+                ? "bg-tertiaryContainerHover underline decoration-onBackground"
+                : ""
+            }
               `}
         >
           {p.text}
         </span>
         {p.codeIds?.length > 0 &&
-          p.codeIds.map((codeId) => 
-            <CodeBlob key={codeId} codeId={codeId} hasTrailingBreak={endsWithLineBreak} activeCodeId={activeCodeId} setActiveCodeId={setActiveCodeId} activeCodeRef={activeCodeRef}/>
-          )}
+          p.codeIds.map((codeId) => (
+            <CodeBlob
+              key={codeId}
+              codeId={codeId}
+              hasTrailingBreak={endsWithLineBreak}
+              activeCodeId={activeCodeId}
+              setActiveCodeId={setActiveCodeId}
+              activeCodeRef={activeCodeRef}
+            />
+          ))}
       </span>
     );
   };
