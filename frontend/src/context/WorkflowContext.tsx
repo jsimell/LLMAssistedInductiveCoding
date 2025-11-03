@@ -16,8 +16,8 @@ export interface Code {
 
 export interface AIsuggestion {
   id: number; // A unique id
-  passageId: number | null; // The id of the parent passage this suggestion is linked to
-  passageText: string; // The text content of the passage (a substring of the parent passage)
+  parentPassageId: number | null; // The id of the parent passage this suggestion is linked to
+  subPassageText: string; // The text content of the passage (a substring of the parent passage)
   startIndex: number;
   endIndex: number;
   suggestedCodes: string;  // The suggested codes as a string where the codes are separated with '; '
@@ -122,7 +122,7 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
       } else {
         passage.aiSuggestions.forEach((suggestion) => {
           console.log(`    - Suggestion ${suggestion.id}:`);
-          console.log(`      PassageText: "${suggestion.passageText.substring(0, 40)}..."`);
+          console.log(`      PassageText: "${suggestion.subPassageText.substring(0, 40)}..."`);
           console.log(`      Range: [${suggestion.startIndex}, ${suggestion.endIndex}]`);
           console.log(`      Codes: "${suggestion.suggestedCodes}"`);
         });

@@ -80,8 +80,8 @@ export const useAIsuggestionManager = () => {
       // Construct the AIsuggestion
       newSuggestionsArray = [{
         id: nextSuggestionId,
-        passageId: passageId,
-        passageText: passage.text,
+        parentPassageId: passageId,
+        subPassageText: passage.text,
         startIndex: 0,
         endIndex: passage.text.length,
         suggestedCodes: codeSuggestions,
