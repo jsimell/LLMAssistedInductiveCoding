@@ -1,20 +1,17 @@
 import { useContext } from "react";
 import { Passage, WorkflowContext } from "../../../../context/WorkflowContext";
+import { useAIsuggestionManager } from "./useAIsuggestionManager";
 
 interface UsePassageSegmenterProps {
-  activeCodeId: number | null;
   setActiveCodeId: React.Dispatch<React.SetStateAction<number | null>>;
 }
 
 /**
  * A custom hook to handle addition of new highlighted passages in the coding workspace
- * 
- * @param activeCodeId - The ID of the currently active code being edited.
  * @param setActiveCodeId - Function to update the active code ID.
  * @returns An object containing a function to segment highlighted text into passages and codes.
  */
 export const usePassageSegmenter = ({
-  activeCodeId,
   setActiveCodeId,
 }: UsePassageSegmenterProps) => {
   const context = useContext(WorkflowContext);
@@ -31,6 +28,8 @@ export const usePassageSegmenter = ({
     nextPassageId,
     setNextPassageId,
   } = context;
+
+  const { updateSuggestionsForPassage } = useAIsuggestionManager();
 
   /**
    * This function gets called when the user highlights a passage in the coding interface.
@@ -124,12 +123,14 @@ export const usePassageSegmenter = ({
           order: sourceOrder,
           text: highlighted,
           codeIds: [newCodeId],
+          aiSuggestions: [],
         },
         {
           id: newPassageId++,
           order: sourceOrder + 1,
           text: afterHighlighted,
           codeIds: [],
+          aiSuggestions: [],
         },
       ];
       passageIdOfNewCode = newPassageId - 2;
@@ -143,12 +144,14 @@ export const usePassageSegmenter = ({
           order: sourceOrder,
           text: beforeHighlighted,
           codeIds: [],
+          aiSuggestions: [],
         },
         {
           id: newPassageId++,
           order: sourceOrder + 1,
           text: highlighted,
           codeIds: [newCodeId],
+          aiSuggestions: [],
         },
       ];
       passageIdOfNewCode = newPassageId - 1;
@@ -162,18 +165,21 @@ export const usePassageSegmenter = ({
           order: sourceOrder,
           text: beforeHighlighted,
           codeIds: [],
+          aiSuggestions: [],
         },
         {
           id: newPassageId++,
           order: sourceOrder + 1,
           text: highlighted,
           codeIds: [newCodeId],
+          aiSuggestions: [],
         },
         {
           id: newPassageId++,
           order: sourceOrder + 2,
           text: afterHighlighted,
           codeIds: [],
+          aiSuggestions: [],
         },
       ];
       passageIdOfNewCode = newPassageId - 2;
@@ -208,7 +214,14 @@ export const usePassageSegmenter = ({
       { id: newCodeId, passageId: passageIdOfNewCode, code: "" },
     ]);
 
-    // 9. Newly added code should be active -> update activeCodeId
+    // 9. Update the AI suggestions for all the new passages.
+    // The setTimeout call ensures that the AI suggestions update only after the previous passages state update finishes.
+    const idsToUpdate = newPassages.map(p => p.id);
+    setTimeout(() => {
+      idsToUpdate.forEach((id) => updateSuggestionsForPassage(id));
+    }, 0);
+
+    // 10. Newly added code should be active -> update activeCodeId
     setActiveCodeId(newCodeId);
   };
 
