@@ -4,8 +4,6 @@ import ToggleSwitch from "../../ToggleSwitch";
 import Codebook from "./Codebook";
 import CodeBlob from "./CodeBlob";
 import { usePassageSegmenter } from "./hooks/usePassageSegmenter";
-import SuggestionBlob from "./SuggestionBlob";
-import { useSuggestionActions } from "./hooks/useSuggestionActions";
 import { PlusIcon } from "@heroicons/react/24/solid";
 import { useCodeManager } from "./hooks/useCodeManager";
 
@@ -13,19 +11,13 @@ const CodingCardContent = () => {
   // Local state for tracking the currently active passage and code input
   const [activeCodeId, setActiveCodeId] = useState<number | null>(null);
   const [activePassageId, setActivePassageId] = useState<number | null>(null);
-  const [showCodeSuggestionsFor, setShowCodeSuggestionsFor] = useState<number | null>(null);
+  const [hoveredPassageId, setHoveredPassageId] = useState<number | null>(null);
 
   const { createNewPassage } = usePassageSegmenter({
     setActiveCodeId,
   });
 
   const { addCode } = useCodeManager({ activeCodeId, setActiveCodeId });
-
-  const { handleAcceptSuggestion, handleEditSuggestion, handleRejectSuggestion } = useSuggestionActions({
-    activeCodeId,
-    setActiveCodeId,
-    setShowCodeSuggestionsFor,
-  });
 
   // Get global states and setters from the context
   const context = useContext(WorkflowContext);
@@ -79,9 +71,9 @@ const CodingCardContent = () => {
 
     const handleMouseEnter = () => {
       if (p.codeIds?.length > 0) {
-        setShowCodeSuggestionsFor(p.id);
+        if (activePassageId !== p.id) setHoveredPassageId(p.id);
       } else {
-        setShowCodeSuggestionsFor(null);
+        setHoveredPassageId(null);
       }
     }
 
@@ -89,7 +81,7 @@ const CodingCardContent = () => {
       <span
         key={p.id}
         onMouseEnter={handleMouseEnter}
-        onMouseLeave={() => setShowCodeSuggestionsFor(null)}
+        onMouseLeave={() => setHoveredPassageId(null)}
         className="p-2 -mx-2" // Padding creates hover zone, negative margin prevents layout shift
       >
         <span
@@ -120,33 +112,25 @@ const CodingCardContent = () => {
               parentPassage={p}
               codeId={codeId}
               hasTrailingBreak={
-                endsWithLineBreak && showCodeSuggestionsFor !== p.id
+                endsWithLineBreak && hoveredPassageId !== p.id
               }
               activeCodeId={activeCodeId}
               setActiveCodeId={setActiveCodeId}
               activeCodeRef={activeCodeRef}
             />
           ))}
-        {/* {p.codeIds?.length > 0 && (
-          <PlusIcon 
-            className="inline size-6 mb-[2px] text-gray-600 border-1 border-gray-400 rounded-full bg-tertiaryContainer hover:bg-tertiaryContainerHover" 
-            onClick={(e) => {
-              e.stopPropagation(); // Prevent triggering parent onMouseUp event
-              addCode(p.id, "");
-              setActiveCodeId(p.id);
-            }}
-          />
+        {/* {hoveredPassageId === p.id && (
+          <>
+            <PlusIcon 
+              className="inline size-6 mb-[2px] text-gray-600 border-1 border-gray-400 rounded-full bg-tertiaryContainer hover:bg-tertiaryContainerHover" 
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent triggering parent onMouseUp event
+                addCode(p.id, "");
+                setActiveCodeId(p.id);
+              }}
+            />
+          </>
         )} */}
-        {showCodeSuggestionsFor === p.id && aiSuggestionsEnabled && p.aiSuggestions?.[0] && activePassageId !== p.id && (
-          <SuggestionBlob
-            passageId={p.id}
-            suggestionId={p.aiSuggestions[0].id}
-            hasTrailingBreak={endsWithLineBreak}
-            onAccept={handleAcceptSuggestion}
-            onEdit={handleEditSuggestion}
-            onReject={handleRejectSuggestion}
-          />
-        )}
       </span>
     );
   };

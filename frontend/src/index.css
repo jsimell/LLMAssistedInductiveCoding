@@ -5,23 +5,6 @@
   background-color: #242424;
 }
 
-.span-with-hover-zone {
-  position: relative;
-  display: inline;
-}
-
-.span-with-hover-zone::before {
-  content: '';
-  position: absolute;
-  top: -8px;
-  left: -8px;
-  right: -8px;
-  bottom: -8px;
-  pointer-events: auto;
-  /* For debugging */
-  background: rgba(255, 0, 0, 0.1);
-}
-
 @theme {
   /* Colors */
   --color-primary: #003054;
