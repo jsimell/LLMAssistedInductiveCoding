@@ -1,9 +1,9 @@
 import { useContext, useRef, useEffect } from "react";
-import { Code, WorkflowContext } from "../../../../context/WorkflowContext";
-import { useAIsuggestionManager } from "./useAIsuggestionManager";
+import { Code, Passage, WorkflowContext } from "../../../../context/WorkflowContext";
+import { useCodeSuggestions } from "./apiCommunication/useCodeSuggestions";
+import { useHighlightSuggestions } from "./apiCommunication/useHighlightSuggestions";
 
 interface UseCodeManagerProps {
-  activeCodeId: number | null;
   setActiveCodeId: React.Dispatch<React.SetStateAction<number | null>>;
 }
 
@@ -16,7 +16,6 @@ interface UseCodeManagerProps {
  * @returns An object containing functions to update, delete codes, and handle keydown events.
  */
 export const useCodeManager = ({
-  activeCodeId,
   setActiveCodeId,
 }: UseCodeManagerProps) => {
   const context = useContext(WorkflowContext);
@@ -25,34 +24,95 @@ export const useCodeManager = ({
   }
 
   const { codes, setCodes, passages, setPassages, nextCodeId, setNextCodeId } = context;
-  const { updateSuggestionsForPassage } = useAIsuggestionManager();
+  const { getCodeSuggestions } = useCodeSuggestions();
+  const { getNextHighlightSuggestion } = useHighlightSuggestions();
 
   // Track which passage needs suggestion update
-  const passageNeedingUpdateRef = useRef<number | null>(null);
+  const fetchSuggestionsForPassageId = useRef<number | null>(null);
 
-  // Takes care of updating suggestions for passages whose codes were changed
+  // Update code suggestions for passages that need it when codes state changes
   useEffect(() => {
-    const passageId = passageNeedingUpdateRef.current;
-    if (passageId !== null) {
-      updateSuggestionsForPassage(passageId);
-      passageNeedingUpdateRef.current = null; // Reset after update
-    }
-  }, [codes]);
+      const targetPassageId = fetchSuggestionsForPassageId.current;
+      fetchSuggestionsForPassageId.current = null;
+      
+      const targetPassage = passages.find(p => p.id === targetPassageId);
+      if (!targetPassage) return;
 
-  /** Adds a new code to a passage.
+      if (targetPassage.isHighlighted) {
+        const existingCodes = targetPassage.codeIds.map(
+          (cid) => codes.find((c) => c.id === cid)?.code || ""
+        ).filter(Boolean);
+        getCodeSuggestions(targetPassage, existingCodes).then((suggestions) => {
+          setPassages((prev) => {
+            const currentPassage = prev.find(p => p.id === targetPassageId);
+            // Only apply if passage still exists, is STILL highlighted and HAS codes
+            if (!currentPassage || !currentPassage.isHighlighted || currentPassage.codeIds.length === 0) {
+              return prev; // Passage state changed - ignore stale response
+            }
+            
+            return prev.map((p) =>
+              p.id === targetPassageId && p.isHighlighted
+                ? { ...p, codeSuggestions: suggestions }
+                : p
+            );
+          });
+        })
+        .catch((error) => {
+          console.error(`Failed to fetch code suggestions for passage ${targetPassage.text.slice(0, 30)+ "..."}:`, error);
+        });
+      } else {
+        // If passage is not highlighted, fetch highlight suggestions
+        getNextHighlightSuggestion(targetPassage).then((suggestion) => {
+          const isHighlighted = passages.find(p => p.id === targetPassage.id)?.isHighlighted || false; // Use an uo-to-date value
+          setPassages((prev) => {
+            const currentPassage = prev.find(p => p.id === targetPassageId);
+            // Only apply if passage still exists and is still unhighlighted
+            if (!currentPassage || currentPassage.isHighlighted) {
+              return prev; // Passage state changed - ignore stale response
+            }
+            
+            return prev.map((p) =>
+              p.id === targetPassageId && !p.isHighlighted
+                ? { ...p, nextHighlightSuggestion: suggestion }
+                : p
+            );
+          });
+        })
+        .catch((error) => {
+          console.error(`Failed to fetch highlight suggestion for passage ${targetPassage.text.slice(0, 30)+ "..."}:`, error);
+        });
+      }
+  }, [passages]);
+
+
+  /**
+   * Helper to check if two codeId arrays are equal
+   */
+  const areCodeIdsEqual = (ids1: number[], ids2: number[]): boolean => {
+    if (ids1.length !== ids2.length) return false;
+    return ids1.every((id, index) => id === ids2[index]);
+  };
+
+
+  /** Adds a new code to a passage and activates the added code.
    * 
    * @param passageId Id of the passage to which the code will be added
    * @param codeValue The code content (can be a single code or multiple codes separated by ';')
    */
-  const addCode = (passageId: number, codeValue: string) => {
-    const codeList = separateMultipleCodes(codeValue.trim());
+  const addCode = (passage: Passage, codeValue: string) => {
+    let codeList = separateMultipleCodes(codeValue.trim());
+    // Edge case: if the codeValue is an empty string (i.e., user clicked the + button without typing anything)
+    if (codeValue.trim() === "") {
+      codeList = [""];
+    }
+    
     let newCodeId = nextCodeId;
 
     setCodes((prev) => {
       const newCodes = codeList.map((code) => {
         const codeObj: Code = {
           id: newCodeId++,
-          passageId: passageId,
+          passageId: passage.id,
           code: code,
         };
         return codeObj;
@@ -67,17 +127,21 @@ export const useCodeManager = ({
     );
     setPassages((prev) =>
       prev.map((p) =>
-        p.id === passageId
-          ? { ...p, codeIds: [...p.codeIds, ...newCodeIds] }
+        p.id === passage.id
+          ? { ...p, isHighlighted: true, codeIds: [...p.codeIds, ...newCodeIds], nextHighlightSuggestion: null }
           : p
       )
     );
 
     // Mark passage for AI suggestion update
-    passageNeedingUpdateRef.current = passageId;
+    fetchSuggestionsForPassageId.current = passage.id;
 
     // Update nextCodeId
     setNextCodeId(newCodeId);
+
+    // Set the last added code as active
+    setActiveCodeId(newCodeIds[newCodeIds.length - 1]);
+    return;
   };
 
 
@@ -89,6 +153,13 @@ export const useCodeManager = ({
   const updateCode = (id: number, newValue: string) => {
     const codeList = separateMultipleCodes(newValue.trim());
     let newCodeId = nextCodeId;
+
+    // Edge case: if no change, do nothing
+    const existingCode = codes.find((c) => c.id === id);
+    if (!existingCode) return;
+    if (codeList.length === 1 && codeList[0] === existingCode.code) {
+      return;
+    }
 
     // Edge case: if user cleared the code completely (i.e. entered on an empty codeBlob), delete it instead
     if (codeList.length === 0) {
@@ -129,7 +200,9 @@ export const useCodeManager = ({
         return p.id === passageId
           ? {
               ...p,
+              isHighlighted: true,
               codeIds: [...p.codeIds, ...newCodeIds],
+              nextHighlightSuggestion: null,
             }
           : p;
       })
@@ -139,7 +212,7 @@ export const useCodeManager = ({
     setNextCodeId(newCodeId);
 
     // Mark passage for AI suggestion update
-    passageNeedingUpdateRef.current = passageId;
+    fetchSuggestionsForPassageId.current = passageId;
 
     // No code should be active after update -> set activeCodeId to null
     setActiveCodeId(null);
@@ -154,24 +227,34 @@ export const useCodeManager = ({
 
     setPassages((prev) => {
       // 1. Find affected passage
-      const affectedPassage = prev.find((p) => p.codeIds.includes(id));
+      const affectedPassage = prev.find((p) => p.isHighlighted && p.codeIds.includes(id));
       if (!affectedPassage) return prev;
 
       // 2. Remove code from passage's codeIds
-      const updatedPassage = {
-        ...affectedPassage,
-        codeIds: affectedPassage.codeIds.filter((cid) => cid !== id),
-      };
+      const filteredCodeIds = affectedPassage.codeIds.filter((cid) => cid !== id);
 
-      // 3. Mark the passage for AI suggestion update
-      passageNeedingUpdateRef.current = updatedPassage.id;
-
-      // 4. Check if passage still has codes
-      if (updatedPassage.codeIds.length > 0) {
-        // Still has codes - just update this passage
+      // 3. Check if passage still has codes and create properly typed passage
+      let updatedPassage: Passage;
+      if (filteredCodeIds.length > 0) {
+        updatedPassage = {
+          ...affectedPassage,
+          isHighlighted: true,
+          codeIds: filteredCodeIds,
+          nextHighlightSuggestion: null,
+        };
+        // Mark the passage for AI suggestion update and return updated passages
+        fetchSuggestionsForPassageId.current = updatedPassage.id;
         return prev.map((p) =>
           p.id === updatedPassage.id ? updatedPassage : p
         );
+      } else {
+        updatedPassage = {
+          ...affectedPassage,
+          isHighlighted: false,
+          codeIds: [],
+          codeSuggestions: [],
+          nextHighlightSuggestion: null,
+        };
       }
 
       // 5. Otherwise: passage has no codes left and it may have to be merged with neighboring passages.
@@ -198,13 +281,18 @@ export const useCodeManager = ({
       }
 
       // Create a new merged passage (empty codeIds)
-      const newMergedPassage = {
+      const newMergedPassage: Passage = {
         id: updatedPassage.id, // reuse the current one’s id
         order: mergePrev ? prevPassage.order : updatedPassage.order,
         text: mergedText,
+        isHighlighted: false,
         codeIds: [],
-        aiSuggestions: [], // new AI suggestions are fetched after merging
+        codeSuggestions: [],
+        nextHighlightSuggestion: null,
       };
+
+      // Set passage needing update ref
+      fetchSuggestionsForPassageId.current = newMergedPassage.id;
 
       // Insert the new merged passage and remove the old ones
       const filtered = prev.filter((p) => !passagesToRemove.includes(p.id));

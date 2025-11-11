@@ -1,8 +1,7 @@
 import { useContext, useState, useEffect, useRef } from "react";
-import { FolderArrowDownIcon, ArrowsRightLeftIcon, ArrowRightIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
+import { FolderArrowDownIcon, ArrowsRightLeftIcon } from "@heroicons/react/24/outline";
 import { WorkflowContext } from "../../context/WorkflowContext";
 import Button from "../Button";
-import StepNavigationButtons from "../StepNavigationButtons";
 
 const DataUploadCardContent = () => {
   const [isLoading, setIsLoading] = useState(false);

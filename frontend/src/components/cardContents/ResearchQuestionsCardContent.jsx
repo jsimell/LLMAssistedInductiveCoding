@@ -1,6 +1,5 @@
 import { useState, useContext, useRef, useEffect } from "react";
 import { WorkflowContext } from "../../context/WorkflowContext";
-import StepNavigationButtons from "../StepNavigationButtons";
 import Button from "../Button";
 
 const ResearchQuestionsCardContent = () => {
@@ -12,8 +11,8 @@ const ResearchQuestionsCardContent = () => {
     setContextInfo,
     setProceedAvailable,
   } = useContext(WorkflowContext);
-  const [currentRQs, setCurrentRQs] = useState("");
-  const [currentContextInfo, setCurrentContextInfo] = useState("");
+  const [currentRQs, setCurrentRQs] = useState("How do the interviewees perceive the user experience of the system? How does it compare to their previous experiences with qualitative coding?");
+  const [currentContextInfo, setCurrentContextInfo] = useState("The data is from a group user interview with three interviewees and one interviewer, conducted after testing of an AI assisted inductive coding system.");
   const formRef = useRef(null);
 
   // Make sure the next step button is available if the user returns to this screen after submitting the info previously

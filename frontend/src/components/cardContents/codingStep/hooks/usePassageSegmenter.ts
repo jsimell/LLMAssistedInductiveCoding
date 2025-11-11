@@ -1,6 +1,7 @@
 import { useContext, useEffect, useRef } from "react";
 import { Passage, WorkflowContext } from "../../../../context/WorkflowContext";
-import { useAIsuggestionManager } from "./useAIsuggestionManager";
+import { useCodeSuggestions } from "./apiCommunication/useCodeSuggestions";
+import { useHighlightSuggestions } from "./apiCommunication/useHighlightSuggestions";
 
 interface UsePassageSegmenterProps {
   setActiveCodeId: React.Dispatch<React.SetStateAction<number | null>>;
@@ -20,6 +21,7 @@ export const usePassageSegmenter = ({
   }
 
   const {
+    codes,
     setCodes,
     passages,
     setPassages,
@@ -29,25 +31,69 @@ export const usePassageSegmenter = ({
     setNextPassageId,
   } = context;
 
-  const { updateSuggestionsForPassage } = useAIsuggestionManager();
+  const { getNextHighlightSuggestion } = useHighlightSuggestions();
+  const { getCodeSuggestions } = useCodeSuggestions();
 
   // Track which passages need AI suggestions
-  const passagesNeedingSuggestionsRef = useRef<number[]>([]);
+  const highlightSuggestionsQueueRef = useRef<Passage[]>([]);
+  const codeSuggestionsQueueRef = useRef<Passage[]>([]);
 
-  // Trigger AI suggestions when new passages are added
   useEffect(() => {
-    if (passagesNeedingSuggestionsRef.current.length > 0) {
-      const ids = [...passagesNeedingSuggestionsRef.current];
-      passagesNeedingSuggestionsRef.current = [];
-      
-      ids.forEach((id) => {
-        const passage = passages.find(p => p.id === id);
-        if (passage) {
-          updateSuggestionsForPassage(id);
-        }
-      });
-    }
+    const currentQueue = [...highlightSuggestionsQueueRef.current, ...codeSuggestionsQueueRef.current];
+    highlightSuggestionsQueueRef.current = [];
+    codeSuggestionsQueueRef.current = [];
+
+    currentQueue.forEach(async (targetPassage) => {
+      if (targetPassage.isHighlighted) {
+        const existingCodes = targetPassage.codeIds.map(
+          (cid) => codes.find((c) => c.id === cid)?.code || ""
+        ).filter(Boolean);
+        getCodeSuggestions(targetPassage, existingCodes).then((suggestions) => {
+          setPassages((prev) => {
+            const upToDateTarget = prev.find((p) => p.id === targetPassage.id);
+            if (!upToDateTarget || !upToDateTarget.isHighlighted || !areCodeIdsEqual(upToDateTarget.codeIds, targetPassage.codeIds)) {
+              return prev; // Passage state changed - ignore stale response
+            }
+            return prev.map((p) =>
+              p.id === targetPassage.id
+                ? { ...p, codeSuggestions: suggestions, isHighlighted: true, nextHighlightSuggestion: null }
+                : p
+            );
+          });
+        })
+        .catch((error) => {
+          console.error(`Failed to fetch code suggestions for passage ${targetPassage.text.slice(0, 30)+ "..."}:`, error);
+        });
+      } else {
+        // If passage is not highlighted, fetch highlight suggestions
+        getNextHighlightSuggestion(targetPassage).then((suggestion) => {
+          setPassages((prev) => {
+            const upToDateTarget = prev.find((p) => p.id === targetPassage.id);
+            if (!upToDateTarget || upToDateTarget.isHighlighted || !areCodeIdsEqual(upToDateTarget.codeIds, targetPassage.codeIds)) {
+              return prev; // Passage state changed - ignore stale response
+            }
+            return prev.map((p) =>
+              p.id === targetPassage.id
+                ? { ...p, isHighlighted: false, codeIds: [], codeSuggestions: [], nextHighlightSuggestion: suggestion }
+                : p
+            );
+          });
+        })
+        .catch((error) => {
+          console.error(`Failed to fetch highlight suggestion for passage ${targetPassage.text.slice(0, 30)+ "..."}:`, error);
+        });
+      }
+    });
   }, [passages]);
+
+
+  /**
+   * Helper to check if two codeId arrays are equal
+   */
+  const areCodeIdsEqual = (ids1: number[], ids2: number[]): boolean => {
+    if (ids1.length !== ids2.length) return false;
+    return ids1.every((id, index) => id === ids2[index]);
+  };
 
   
   /**
@@ -56,7 +102,7 @@ export const usePassageSegmenter = ({
    * Ensures that no overlapping highlights occur.
    */
   const createNewPassage = () => {
-    // 1. Get selection, save relevant information, and do some basic validation
+    // 1. Get selection from actual user selection, or from provided highlightedText (used when accepting highlight suggestions)
     const selection = window.getSelection();
     if (!selection) {
       console.log("Selection undefined");
@@ -66,6 +112,7 @@ export const usePassageSegmenter = ({
     if (selection.isCollapsed) {
       return;
     }
+    // Save relevant information about the selection
     const startNode = selection.anchorNode;
     const endNode = selection.focusNode;
     if (!startNode || !endNode) {
@@ -78,9 +125,12 @@ export const usePassageSegmenter = ({
         ? Number(startNode.parentNode.id) // The id element contains the order of the passage
         : undefined;
     const sourcePassage = passages.find((p) => p.id === sourceId);
+    if (!sourcePassage) {
+      console.warn("Source passage not found.");
+      return;
+    }
     const sourceOrder = sourcePassage?.order;
     if (
-      !sourcePassage ||
       !sourceText ||
       sourceId === undefined ||
       sourceOrder === undefined
@@ -129,7 +179,13 @@ export const usePassageSegmenter = ({
     //     attach newCodeId to sourcePassage.codeIds
     if (beforeHighlighted.length === 0 && afterHighlighted.length === 0) {
       newPassages = [
-        { ...sourcePassage, codeIds: sourcePassage.codeIds.concat(newCodeId) },
+        { 
+          ...sourcePassage, 
+          isHighlighted: true, 
+          codeIds: [...(sourcePassage.codeIds || []), newCodeId], 
+          codeSuggestions: [],
+          nextHighlightSuggestion: null
+        },
       ];
       passageIdOfNewCode = sourcePassage.id;
     }
@@ -141,15 +197,19 @@ export const usePassageSegmenter = ({
           id: newPassageId++,
           order: sourceOrder,
           text: highlighted,
+          isHighlighted: true,
           codeIds: [newCodeId],
-          aiSuggestions: [],
+          codeSuggestions: [],
+          nextHighlightSuggestion: null,
         },
         {
           id: newPassageId++,
           order: sourceOrder + 1,
           text: afterHighlighted,
+          isHighlighted: false,
           codeIds: [],
-          aiSuggestions: [],
+          codeSuggestions: [],
+          nextHighlightSuggestion: null,
         },
       ];
       passageIdOfNewCode = newPassageId - 2;
@@ -162,15 +222,19 @@ export const usePassageSegmenter = ({
           id: newPassageId++,
           order: sourceOrder,
           text: beforeHighlighted,
+          isHighlighted: false,
           codeIds: [],
-          aiSuggestions: [],
+          codeSuggestions: [],
+          nextHighlightSuggestion: null,
         },
         {
           id: newPassageId++,
           order: sourceOrder + 1,
           text: highlighted,
+          isHighlighted: true,
           codeIds: [newCodeId],
-          aiSuggestions: [],
+          codeSuggestions: [],
+          nextHighlightSuggestion: null,
         },
       ];
       passageIdOfNewCode = newPassageId - 1;
@@ -183,22 +247,28 @@ export const usePassageSegmenter = ({
           id: newPassageId++,
           order: sourceOrder,
           text: beforeHighlighted,
+          isHighlighted: false,
           codeIds: [],
-          aiSuggestions: [],
+          codeSuggestions: [],
+          nextHighlightSuggestion: null,
         },
         {
           id: newPassageId++,
           order: sourceOrder + 1,
           text: highlighted,
+          isHighlighted: true,
           codeIds: [newCodeId],
-          aiSuggestions: [],
+          codeSuggestions: [],
+          nextHighlightSuggestion: null,
         },
         {
           id: newPassageId++,
           order: sourceOrder + 2,
           text: afterHighlighted,
+          isHighlighted: false,
           codeIds: [],
-          aiSuggestions: [],
+          codeSuggestions: [],
+          nextHighlightSuggestion: null,
         },
       ];
       passageIdOfNewCode = newPassageId - 2;
@@ -233,8 +303,9 @@ export const usePassageSegmenter = ({
       { id: newCodeId, passageId: passageIdOfNewCode, code: "" },
     ]);
 
-    // 9. Mark new passages as needing AI suggestions
-    passagesNeedingSuggestionsRef.current = newPassages.map(p => p.id);
+    // 9. Add new passages to appropriate suggestion queues
+    highlightSuggestionsQueueRef.current = newPassages.filter(p => !p.isHighlighted);
+    codeSuggestionsQueueRef.current = newPassages.filter(p => p.isHighlighted);
 
     // 10. Newly added code should be active -> update activeCodeId
     setActiveCodeId(newCodeId);

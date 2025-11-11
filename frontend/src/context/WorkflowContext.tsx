@@ -1,12 +1,30 @@
 import React, { createContext, useState, useEffect } from "react";
 
-export interface Passage {
-  id: number; // A unique id
+// Base properties shared by all passages
+interface BasePassage {
+  id: number;
   order: number;
   text: string;
-  codeIds: number[];
-  aiSuggestions: AIsuggestion[]; // links the passage to its AI suggestions
 }
+
+// Unhighlighted passage (no codes)
+interface UnhighlightedPassage extends BasePassage {
+  isHighlighted: false;
+  codeIds: []; // No codes for unhighlighted passages
+  codeSuggestions: []; // No code suggestions for unhighlighted passages
+  nextHighlightSuggestion: HighlightSuggestion | null;
+}
+
+// Highlighted passage (has codes and AI suggestions)
+interface HighlightedPassage extends BasePassage {
+  isHighlighted: true;
+  codeIds: number[];
+  codeSuggestions: string[];
+  nextHighlightSuggestion: null;
+}
+
+// Discriminated union
+export type Passage = UnhighlightedPassage | HighlightedPassage;
 
 export interface Code {
   id: number; // A unique id
@@ -14,13 +32,9 @@ export interface Code {
   code: string;
 }
 
-export interface AIsuggestion {
-  id: number; // A unique id
-  parentPassageId: number | null; // The id of the parent passage this suggestion is linked to
-  subPassageText: string; // The text content of the passage (a substring of the parent passage)
-  startIndex: number;
-  endIndex: number;
-  suggestedCodes: string;  // The suggested codes as a string where the codes are separated with '; '
+export interface HighlightSuggestion {
+  passage: string;
+  code: string;
 }
 
 export interface FileInfo {
@@ -73,6 +87,9 @@ export interface WorkflowContextType {
 
   codebook: Set<string>;
   setCodebook: Setter<Set<string>>;
+
+  contextWindowSize: number | null;
+  setContextWindowSize: Setter<number | null>;
 }
 
 export function WorkflowProvider({ children }: { children: React.ReactNode }) {
@@ -92,12 +109,13 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
   const [passages, setPassages] = useState<Passage[]>([]);  // The passages of the data coding phase
   const [codes, setCodes] = useState<Code[]>([]);  // The codes of the data coding phase (contains all code instances, even duplicates)
   const [codebook, setCodebook] = useState<Set<string>>(new Set()) // Contains all unique codes
+  const [contextWindowSize, setContextWindowSize] = useState<number | null>(500); // Number of characters in the context window for AI suggestions
 
   // Set the raw data as the first passage once it is uploaded
   useEffect(() => {
     if (rawData) {
       setNextPassageId(prevId => {
-        setPassages([{ id: prevId, order: 0, text: rawData, codeIds: [], aiSuggestions: [] }]);
+        setPassages([{ id: prevId, order: 0, text: rawData, isHighlighted: false, codeIds: [], codeSuggestions: [], nextHighlightSuggestion: null }]);
         return prevId + 1;
       })
     };
@@ -124,6 +142,7 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
     nextPassageId, setNextPassageId,
     codebook, setCodebook,
     nextSuggestionId, setNextSuggestionId,
+    contextWindowSize, setContextWindowSize,
   };
 
   // Make the states available to all children components
