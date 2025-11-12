@@ -1,5 +1,5 @@
 import { PencilSquareIcon } from "@heroicons/react/24/solid";
-import { useContext, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { WorkflowContext } from "../../../context/WorkflowContext";
 import { useCodeManager } from "./hooks/useCodeManager.js";
 import SmallButton from "../../SmallButton.jsx";
@@ -16,12 +16,27 @@ const CodeBookRow = ({ code }: CodeBookRowProps) => {
   const [editInputValue, setEditInputValue] = useState(code);
   const [showEditInteraction, setShowEditInteraction] = useState(false);
   const editContainerRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { editAllInstancesOfCode } = useCodeManager({
     setActiveCodeId: () => {},
   }); // Dummy setters since we don't need them here
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  // Auto-grow textarea as user types
+  useEffect(() => {
+    if (textareaRef.current) {
+      autoGrowTextArea(textareaRef.current);
+    }
+  }, [editInputValue]);
+
+  // Adjust once when editor first appears (fixes initial oversize)
+  useEffect(() => {
+    if (showEditInteraction && textareaRef.current) {
+      requestAnimationFrame(() => autoGrowTextArea(textareaRef.current!));
+    }
+  }, [showEditInteraction]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter") {
       saveChanges();
     } else if (e.key === "Escape") {
@@ -39,11 +54,17 @@ const CodeBookRow = ({ code }: CodeBookRowProps) => {
     setShowEditInteraction(false);
   };
 
+  const autoGrowTextArea = (el: HTMLTextAreaElement) => {
+    el.style.height = "0px"; // reset height
+    const newHeight = el.scrollHeight;
+    el.style.height = newHeight + 4 + "px"; // + 4 because of padding in the textarea
+  };
+
   const renderEditInteraction = () => {
     return (
-      <div ref={editContainerRef} className="flex flex-col w-full bg-gray-200 border border-outline px-3.5 pt-2.5 pb-3 rounded-md">
+      <div ref={editContainerRef} className="flex flex-col mt-3.5 w-full bg-gray-200 border border-outline px-3.5 pt-2.5 pb-3 rounded-md">
         <span className="ml-[1px]">Edit all instances of code:</span>
-        <div className="inline-flex items-center justify-between pb-2 ml-[1px]">
+        <div className="inline-flex gap-10 items-center justify-between pb-2 ml-[1px]">
           <i>{code}</i>
           <span>{`(${
             codes.filter((c) => (c.code ?? "").trim() === code.trim()).length
@@ -51,12 +72,12 @@ const CodeBookRow = ({ code }: CodeBookRowProps) => {
         </div>
         <span className="ml-[1px]">New value:</span>
         <div className="relative">
-          <input
-            type="text"
+          <textarea
+            ref={textareaRef}
             value={editInputValue}
             onChange={(e) => setEditInputValue(e.target.value)}
             onKeyDown={(e) => handleKeyDown(e)}
-            className="border border-gray-500 bg-background rounded-sm pl-0.5 w-full h-fit focus:outline-none focus:border-tertiary focus:border-2"
+            className="border border-gray-500 bg-background rounded-sm px-1 py-0.5 w-full resize-none overflow-hidden focus:outline-none focus:border-tertiary focus:border-2"
             onBlur={(e) => {
             // Defer to let focus move to the next element (e.g., Save/Cancel)
             setTimeout(() => {
