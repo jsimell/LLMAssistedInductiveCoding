@@ -13,7 +13,7 @@ const WorkspaceCard = ({ title, children }) => {
         {children}
       </div>
       <div className="flex-1 flex items-end pb-7 px-7 gap-7">
-        <StepNavigationButtons hidePrev={currentStep === 1} hideNext={currentStep === 6}/>
+        <StepNavigationButtons hidePrev={currentStep === 1} hideNext={currentStep === 5}/>
       </div>
     </div>
   );

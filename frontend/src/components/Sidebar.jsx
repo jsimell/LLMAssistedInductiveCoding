@@ -7,8 +7,7 @@ const Sidebar = () => {
       <StepIndicator label={"Access OpenAI API"} idx={2}/>
       <StepIndicator label={"Research Question"} idx={3}/>
       <StepIndicator label={"Data Coding"} idx={4}/>
-      <StepIndicator label={"Summary of Results"} idx={5}/>
-      <StepIndicator label={"Export Data"} idx={6}/>
+      <StepIndicator label={"Export Results"} idx={5}/>
     </div>
   );
 }
