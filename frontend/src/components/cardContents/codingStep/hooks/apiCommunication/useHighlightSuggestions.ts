@@ -4,11 +4,10 @@ import {
   Passage,
   WorkflowContext,
 } from "../../../../../context/WorkflowContext";
-import { callOpenAIStateless, statefullyCallOpenAI } from "../../../../../services/openai";
+import { callOpenAIStateless } from "../../../../../services/openai";
 
 const MAX_RETRY_ATTEMPTS = 2;
 const OPENAI_MODEL = "gpt-4.1"; // Define the model to use
-const MIN_FEW_SHOT_EXAMPLES = 1; // Minimum number of coded passages required for few-shot examples
 
 export const useHighlightSuggestions = () => {
   // Get global states from the context
@@ -94,10 +93,9 @@ export const useHighlightSuggestions = () => {
    * @returns The few-shot examples
    */
   const constructFewShotExamplesString = (passage: Passage) => {
-    // Ensure that there are at least 3 coded passages to use as few-shot examples
     const codedPassages = passages.filter((p) => p.codeIds.length > 0);
-    if (codedPassages.length < MIN_FEW_SHOT_EXAMPLES) {
-      throw new Error(`InsufficientExamplesError: At least ${MIN_FEW_SHOT_EXAMPLES} coded passages are required for AI suggestions.`);
+    if (codedPassages.length === 0) {
+      return "No coded passages yet. Code as a professional qualitative analyst would.";
     }
 
     // Randomly choose up to 10 coded examples for few-shot examples

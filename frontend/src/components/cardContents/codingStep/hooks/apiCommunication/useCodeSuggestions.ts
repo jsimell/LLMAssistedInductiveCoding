@@ -11,7 +11,7 @@ export const useCodeSuggestions = () => {
       "useCodeSuggestions must be used within a WorkflowProvider"
     );
   }
-  const { researchQuestions, contextInfo, codebook, apiKey, passages, contextWindowSize } = context;
+  const { researchQuestions, contextInfo, codebook, codes, apiKey, passages, contextWindowSize } = context;
 
   /**
    * Gets code suggestions for a specific passage based on its existing codes and context.
@@ -23,10 +23,35 @@ export const useCodeSuggestions = () => {
     const systemPrompt = `
       ## ROLE:
       You are a qualitative coding assistant for rapid code suggestions. 
-      Given a specific passage, and the below context, suggest relevant codes for the passage.
+      Given a specific passage, and context information, suggest relevant codes for the passage.
+
+      ## BEHAVIOR:
+      - Under '## CONTEXT INFORMATION', you can find context information to help you suggest relevant codes.
+      ${existingCodes.length === 0 
+        ? "- Your task is to code the passage, using the context as guidance."
+        : ` 
+        - Your task is to suggest ADDITIONAL codes to complement the existing codes of the target passage. 
+        - Do NOT suggest codes that are conceptually identical to any of the existing codes.
+        - The combination of existing and suggested codes should provide comprehensive coding for the passage.
+        - Do NOT include existing codes in your suggestions.
+        `}
+      ${codebook.size > 0 ? `
+      - Reuse existing codes from the codebook whenever possible.
+      - Only create a new code if it is conceptually distinct from all the codes in the codebook.
+      - If you create a new code, mimic the wording and style of the existing codes.`
+      : ""
+      }
+      - Only suggest codes that provide meaningful value in terms of the research questions.
+      - Avoid overcoding; only suggest codes that add meaningful value.
+      - If you can't think of any relevant codes, suggest no codes, and respond with an empty list [].
+
+      ## RESPONSE FORMAT:
+      - Output ONLY a JSON array of code strings. No explanations or any text outside the JSON array.
+      - **IMPORTANT**: Codes MUST NOT contain semicolons (;). If punctuation is needed (should be rare), use a different delimiter.
+      - Start with a lowercase letter unless a code starts with a proper noun.
+      - Example: ["suggested code1", "suggested code2"]
 
       ## CONTEXT INFORMATION
-
       ### TARGET PASSAGE TO CODE:
       "${passage.text}"
 
@@ -37,34 +62,15 @@ export const useCodeSuggestions = () => {
       **CODE ONLY THE TARGET PASSAGE SHOWN ABOVE. Use the surrounding context to understand meaning and flow, but do NOT code the surrounding text.**
 
       ### ADDITIONAL CONTEXT:
-      - Existing codes of the target passage, if any: [${existingCodes.join(", ")}],
-      - Research questions: "${researchQuestions}",
-      - Additional context: "${contextInfo}",
-      - Codebook: [${Array.from(codebook)
+      **Research questions:** "${researchQuestions}",
+      ${existingCodes.length > 0 ? `**Existing codes of the target passage:** [${existingCodes.join(", ")}],` : ""}
+      ${contextInfo.trim() ? `**Contextual information about the data:** "${contextInfo}",` : ""}
+      ${codebook.size > 0 ? `**Codebook:** [${Array.from(codebook)
         .map((code) => `${code}`)
-        .join(", ")}].
-
-      ## BEHAVIOR:
-      ${existingCodes.length === 0 
-        ? "- Your task is to code the passage from scratch using the codebook and research questions as guidance."
-        : ` 
-        - Your task is to suggest ADDITIONAL codes to complement the existing codes. 
-        - Do NOT suggest codes that are conceptually identical to any of the existing codes.
-        - The combination of existing and suggested codes should provide comprehensive coverage of the passage.
-        - Do NOT include existing codes in your suggestions.
-        `}
-      - Only suggest codes that provide meaningful value in terms of the research questions.
-      - Reuse existing codes from the codebook whenever possible.
-      - Only create a new code if it is conceptually distinct from all the codes in the codebook.
-      - If you create a new code, mimic the wording and style of the existing codes.
-      - Avoid overcoding; only suggest codes that add meaningful value to the existing ones.
-      - If you can't think of any additional relevant codes, suggest no codes, and respond with an empty list [].
-
-      ## RESPONSE FORMAT:
-      - Output ONLY a JSON array of code strings. No explanations or any text outside the JSON array.
-      - **IMPORTANT**: Codes MUST NOT contain semicolons (;). If punctuation is needed (should be rare), use a different delimiter.
-      - Start with a lowercase letter unless a code starts with a proper noun.
-      - Example: ["suggested code1", "suggested code2"]
+        .join(", ")}].` : ""}
+      **Few-shot examples of user coded passages:** [
+        ${constructFewShotExamplesString(passage)}
+      ]
     `;
 
   let response = await callOpenAIStateless(apiKey, systemPrompt, OPENAI_MODEL);
@@ -91,7 +97,7 @@ export const useCodeSuggestions = () => {
 
   /** A helper function to get the surrounding text of a passage
    * @param passage The passage object for which to get the surrounding text
-   * @param contextSize Number of characters to include before and after the passage
+   * @param contextSize Number of characters to include before and after the passage (may not be exact because suitable cut points must be found)
    * @returns A text window that contains the passage and its surrounding context
    */
   const getTargetPassageWithContext = (passage: Passage) => {
@@ -103,32 +109,140 @@ export const useCodeSuggestions = () => {
 
     // Collect preceding passages
     for (let i = passageOrder - 1; i >= 0; i--) {
-      const p = passages.find((p) => p.order === i);
+      const p = passages.find(p => p.order === i);
       if (!p) break;
-      if (precedingText.length + p.text.length <= contextSize / 2) {
+
+      // Add entire p.text if within context limit
+      if (precedingText.length + p.text.length <= contextSize / 2 - 30) {
         precedingText = p.text + precedingText;
-      } else {
-        const remainingChars = contextSize - precedingText.length;
-        precedingText = (i !== -1 ? "..." : "") + p.text.slice(-remainingChars) + precedingText; // Add "..." to indicate truncation
+        continue;
+      } 
+
+      // Entire p.text does not fit: Find a suitable cut point
+      const maxRange = contextSize / 6;
+      
+      // 1) if p.text length is less than maxRange, include all of it
+      if (p.text.length <= maxRange) {
+        precedingText = p.text + precedingText;
         break;
       }
-    }
-
-      // Collect following passages
-      for (let j = passageOrder + 1; j < passages.length; j++) {
-        const p = passages.find((p) => p.order === j);
-        if (!p) break;
-        if (followingText.length + p.text.length <= contextSize) {
-          followingText += p.text;
-        } else {
-          const remainingChars = contextSize - followingText.length;
-          followingText += p.text.slice(0, remainingChars) + (j !== passages.length - 1 ? "..." : ""); // Add "..." to indicate truncation
+      
+      let foundCutPoint = false;
+      let idx = p.text.length - 1;
+      
+      // 2) Try to cut at a line break within maxRange
+      while (idx > p.text.length - 1 - maxRange && idx >= 0) {
+        const char = p.text[idx];
+        if (char === "\n") {
+          precedingText = p.text.slice(idx + 1, p.text.length) + precedingText;
+          foundCutPoint = true;
           break;
         }
+        idx--;
       }
-    
+
+      if (!foundCutPoint) {
+        // 3) Try to cut at a sentence end within maxRange from the end
+        const searchStart = Math.max(0, p.text.length - maxRange);
+        const indices = [".", "!", "?"]
+          .map(punct => p.text.lastIndexOf(punct, p.text.length))
+          .filter(idx => idx !== -1 && idx >= searchStart);
+        const endIdx = indices.length ? Math.max(...indices) : -1;
+        
+        if (endIdx !== -1) {
+          precedingText = p.text.slice(endIdx + 1, p.text.length) + precedingText;
+        } else {
+          // 4) No good cut point found, cut at maxRange and include "..." to indicate truncation
+          precedingText = "..." + p.text.slice(p.text.length - maxRange, p.text.length) + precedingText;
+        }
+      }
+      
+      break; // Stop after finding a cut point
+    }
+
+    // Collect following passages
+    for (let j = passageOrder + 1; j < passages.length; j++) {
+      const p = passages.find(p => p.order === j);
+      if (!p) break;
+
+      // Add text if within context limit
+      if (followingText.length + p.text.length <= contextSize / 2 - 30) {
+        followingText += p.text;
+        continue;
+      } 
+
+      // Entire p.text does not fit: Find a suitable cut point
+      const maxRange = contextSize / 6;
+      
+      // 1) if p.text length is less than maxRange, include all of it
+      if (p.text.length <= maxRange) {
+        followingText += p.text;
+        break; // Stop after adding this passage
+      }
+      
+      let foundCutPoint = false;
+      let i = 0;
+      
+      // 2) Try to cut at a line break within maxRange
+      while (i < maxRange && i < p.text.length) {
+        const char = p.text[i];
+        if (char === "\n") {
+          followingText += p.text.slice(0, i + 1);
+          foundCutPoint = true;
+          break;
+        }
+        i++;
+      }
+
+      if (!foundCutPoint) {
+        // 3) Try to cut at a sentence end within maxRange from the start
+        const indices = [".", "!", "?"]
+          .map(punct => p.text.indexOf(punct))
+          .filter(idx => idx !== -1 && idx <= maxRange);
+        const endIdx = indices.length ? Math.min(...indices) : -1;
+        
+        if (endIdx !== -1) {
+          followingText += p.text.slice(0, endIdx + 1);
+        } else {
+          // 4) No good cut point found, cut at maxRange and include "..." to indicate truncation
+          followingText += p.text.slice(0, maxRange) + "...";
+        }
+      }
+      
+      break; // Stop after finding a cut point
+    }
+
     return `${precedingText}<<<${passage.text}>>>${followingText}`;
   }
+
+    /** Constructs few-shot examples string for the system prompt based on existing coded passages.
+     *
+     * @returns The few-shot examples
+     */
+    const constructFewShotExamplesString = (passage: Passage) => {
+    const codedPassages = passages.filter((p) => p.codeIds.length > 0);
+    if (codedPassages.length === 0) {
+      return "No coded passages yet. Code as a professional qualitative analyst would.";
+    }
+  
+      // Randomly choose up to 10 coded examples for few-shot examples
+      const fewShotExamples = codedPassages
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 10)
+        .map((p) => {
+          const codes_: string[] = p.codeIds
+            .map((id) => codes.find((c) => c.id === id)?.code)
+            .filter(Boolean) as string[];
+          
+          return JSON.stringify({
+            passage: p.text,
+            codes: codes_
+          });
+        })
+        .join(",\n");
+  
+      return fewShotExamples
+    };
 
   /** Gets a comprehensive list of autocomplete suggestions for a specific passage.
     * @param passageId - ID of the passage for which to get suggestions
@@ -138,34 +252,15 @@ export const useCodeSuggestions = () => {
     const systemPrompt = `
       ## ROLE:
       You are a qualitative coding assistant for code autocompletion. 
-      Based on the below context, suggest a large set of relevant codes for a specific passage.
+      Based on the context found under '## CONTEXT INFORMATION', suggest a large set of relevant codes for a specific passage.
       The objective is to maximize the possibility that the user finds a suitable code while typing.
-
-      ## CONTEXT INFORMATION
-
-      ### TARGET PASSAGE TO CODE:
-      "${passage.text}"
-
-      ### SURROUNDING CONTEXT (for understanding only):
-      The target passage appears in this context (target marked by <<< >>>):
-      "${getTargetPassageWithContext(passage)}"
-
-      **CODE ONLY THE TARGET PASSAGE SHOWN ABOVE. Use the surrounding context to understand meaning and flow, but do NOT code the surrounding text.**
-
-      ### ADDITIONAL CONTEXT:
-      - Existing codes of the target passage, if any: [${existingCodes.join(", ")}],
-      - Research questions: "${researchQuestions}",
-      - Additional context: "${contextInfo}",
-      - Codebook: [${Array.from(codebook)
-        .map((code) => `${code}`)
-        .join(", ")}].
 
       ## TASK:
       - Your task is to provide a comprehensive list of code suggestions for the target passage to maximize autocomplete matches.
       - You should approach the problem as follows:
         1) Generate 3-6 core codes conceptually distinct from the existing codes of the target passage.
         2) For each core code, create 4-8 alternative phrasings/wordings.
-        3) Ensure that the wording and style of all codes aligns with the style of the existing codebook.
+        3) Ensure that the wording and style of all codes aligns with the coding style displayed in '### ADDITIONAL CONTEXT'.
 
       ## BEHAVIOR:
       - Aim for breadth and variety in your suggestions to cover different aspects and interpretations of the target passage.
@@ -179,6 +274,27 @@ export const useCodeSuggestions = () => {
       - Start with [ and end with ].
       - Codes should start with a lowercase letter unless they start with a proper noun (e.g. "John").
       - Codes MUST NOT contain semicolons (;). If semicolons are needed (should be rare), use a different delimiter.
+
+      ## CONTEXT INFORMATION
+      ### TARGET PASSAGE TO CODE:
+      "${passage.text}"
+
+      ### SURROUNDING CONTEXT (for understanding only):
+      The target passage appears in this context (target marked by <<< >>>):
+      "${getTargetPassageWithContext(passage)}"
+
+      **CODE ONLY THE TARGET PASSAGE SHOWN ABOVE. Use the surrounding context to understand meaning and flow, but do NOT code the surrounding text.**
+
+      ### ADDITIONAL CONTEXT:
+      **Research questions:** "${researchQuestions}",
+      **Existing codes of the target passage:** ${existingCodes.length > 0 ? `[${existingCodes.join(", ")}],` : "No codes yet."}
+      ${contextInfo.trim() ? `**Contextual information about the data:** "${contextInfo}",` : ""}
+      **Codebook:** ${codebook.size > 0 ? `[${Array.from(codebook)
+        .map((code) => `${code}`)
+        .join(", ")}].` : "No codes yet."}
+      **Few-shot examples of user coded passages:** [
+        ${constructFewShotExamplesString(passage)}
+      ]
     `;
 
     let response = await callOpenAIStateless(apiKey, systemPrompt, OPENAI_MODEL);
