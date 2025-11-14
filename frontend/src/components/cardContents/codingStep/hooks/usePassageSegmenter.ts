@@ -66,7 +66,7 @@ export const usePassageSegmenter = ({
         });
       } else {
         // If passage is not highlighted, fetch highlight suggestions
-        getNextHighlightSuggestion(targetPassage).then((suggestion) => {
+        getNextHighlightSuggestion(targetPassage, 0).then((suggestion) => {
           setPassages((prev) => {
             const upToDateTarget = prev.find((p) => p.id === targetPassage.id);
             if (!upToDateTarget || upToDateTarget.isHighlighted || !areCodeIdsEqual(upToDateTarget.codeIds, targetPassage.codeIds)) {

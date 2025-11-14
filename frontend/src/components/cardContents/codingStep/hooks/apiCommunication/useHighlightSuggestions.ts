@@ -31,14 +31,12 @@ export const useHighlightSuggestions = () => {
 
   /** Constructs the system prompt for the AI based on the current context.
    *
+   * @param passage The passage for which to get the highlight suggestion.
+   * @param precedingText The text preceding the main text in the context window.
+   * @param mainText The main text in the context window where the AI should search for highlights.
    * @returns A string prompt for the AI.
    */
-  const constructSystemPrompt = (passage: Passage) => {
-    const { precedingText, mainText } = getContextForHighlightSuggestions(
-      passage,
-      passages,
-    );
-
+  const constructSystemPrompt = (passage: Passage, precedingText: string, mainText: string) => {
     return `
       ## ROLE:
       You are an expert qualitative analyst AI assistant. 
@@ -90,10 +88,11 @@ export const useHighlightSuggestions = () => {
       ]
 
       ## CONTEXT WINDOW:
-      ### PRECEDING TEXT (for understanding only):
-      <<START OF PRECEDING TEXT>>
-      ${precedingText}
-      <<END OF PRECEDING TEXT>>
+      ${precedingText.trim().length > 0 ?
+        `### PRECEDING TEXT (for understanding only):
+        <<START OF PRECEDING TEXT>>
+        ${precedingText}
+        <<END OF PRECEDING TEXT>>` : ""}
       ### MAIN TEXT (your highlight search area):
       <<START OF MAIN TEXT>>
       ${mainText}
@@ -133,17 +132,25 @@ export const useHighlightSuggestions = () => {
 
   /** Fetches the next highlight suggestion from the AI for a given passage. 
    * 
+   * @param passage The passage for which to get the highlight suggestion.
+   * @param searchStartIndex The index in the passage text from which to start searching for the next highlight.
    * @returns an object containing the suggested passage and codes, or null if valid suggestions could not be obtained.
    */
-  const getNextHighlightSuggestion = async (passage: Passage): Promise<HighlightSuggestion | null> => {
+  const getNextHighlightSuggestion = async (passage: Passage, searchStartIndex: number): Promise<HighlightSuggestion | null> => {
     let attempt = 0;
     let clarificationMessage = "";
 
     while (attempt < MAX_RETRY_ATTEMPTS) {
       try {
+        const { precedingText, mainText } = getContextForHighlightSuggestions(
+          passage,
+          passages,
+          searchStartIndex,
+        );
+
         const response = await callOpenAIStateless(
           apiKey,
-          constructSystemPrompt(passage) + clarificationMessage,
+          constructSystemPrompt(passage, precedingText, mainText) + clarificationMessage,
           OPENAI_MODEL
         );
 
@@ -152,11 +159,6 @@ export const useHighlightSuggestions = () => {
           // No relevant passage found
           return null;
         }
-
-        const { mainText } = getContextForHighlightSuggestions(
-          passage,
-          passages,
-        );
 
         // Validate response format
         const parsedResponse = JSON.parse(response.output_text.trim());

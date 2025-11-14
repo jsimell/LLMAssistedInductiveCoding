@@ -1,75 +1,65 @@
 import { Passage } from "../../../../context/WorkflowContext";
 
 /**
- * Goes through passage text from the start and tries to find a suitable cut point within 200 characters.
- * @param p passage to cut
- * @returns a passage text cut at a suitable point
+ * Goes through a string from the start to end and tries to find a suitable cut point within 200 characters.
+ * @param text text to cut
+ * @returns the text cut at a suitable point
  */
-const cutPassageFromEnd = (p: Passage) => {
+const cutTextFromEnd = (text: string) => {
   const maxRange = 200;
 
-  // 1) Try to cut at a line break within maxRange
+  // 1) Try to cut at a line break within the text length, and within maxRange
   let i = 0;
-  while (i < maxRange && i < p.text.length) {
-    const char = p.text[i];
+  while (i < maxRange && i < text.length) {
+    const char = text[i];
     if (char === "\n") {
-      return p.text.slice(0, i + 1);
+      return text.slice(0, i + 1);
     }
     i++;
   }
 
-  // 2) If passage is shorter than maxRange, return entire text
-  if (p.text.length <= maxRange) {
-    return p.text;
-  }
-
-  // 3) Try to cut at a sentence end within maxRange from the start
+  // 2) Try to cut at a sentence end within maxRange from the start
   const indices = [".", "!", "?"]
-    .map((punct) => p.text.indexOf(punct))
+    .map((punct) => text.indexOf(punct))
     .filter((idx) => idx !== -1 && idx <= maxRange);
   const endIdx = indices.length ? Math.min(...indices) : -1;
   if (endIdx !== -1) {
-    return p.text.slice(0, endIdx + 1);
+    return text.slice(0, endIdx + 1);
   } else {
-    // 4) No good cut point found, cut at maxRange and include "..." to indicate truncation
-    return p.text.slice(0, maxRange) + "...";
+    // 3) No good cut point found, cut at maxRange and include "..." to indicate truncation
+    return text.slice(0, maxRange) + "...";
   }
 };
 
 /**
- * Goes through passage text from the end to start and tries to find a suitable cut point within 200 characters.
- * @param p passage to cut
- * @returns a passage text cut at a suitable point
+ * Goes through a string from the end to start and tries to find a suitable cut point within 200 characters.
+ * @param text the text to cut
+ * @returns the text cut at a suitable point
  */
-export const cutPassageFromStart = (p: Passage) => {
+export const cutTextFromStart = (text: string) => {
   const maxRange = 200;
 
-  // 1) Try to cut at a line break within maxRange
-  let i = 0;
-  while (i > p.text.length - 1 - maxRange && i >= 0) {
-    const char = p.text[i];
+  // 1) Try to cut at a line break within the text length and maxRange
+  let i = text.length - 1;
+  while (i > text.length - 1 - maxRange && i >= 0) {
+    const char = text[i];
     if (char === "\n") {
-      return p.text.slice(i + 1, p.text.length);
+      return text.slice(i + 1, text.length);
     }
     i--;
   }
 
-  // 2) If passage is shorter than maxRange, return entire text
-  if (p.text.length <= maxRange) {
-    return p.text;
-  }
-
-  // 3) Try to cut at a sentence end within maxRange from the end
-  const searchStart = Math.max(0, p.text.length - maxRange);
+  // 2) Try to cut at a sentence end within maxRange from the end
+  const searchStart = Math.max(0, text.length - maxRange);
   const indices = [".", "!", "?"]
-    .map((punct) => p.text.lastIndexOf(punct, p.text.length))
+    .map((punct) => text.lastIndexOf(punct, text.length))
     .filter((idx) => idx !== -1 && idx >= searchStart);
   const endIdx = indices.length ? Math.max(...indices) : -1;
   if (endIdx !== -1) {
-    return p.text.slice(endIdx + 1, p.text.length);
+    return text.slice(endIdx + 1, text.length);
   } else {
-    // 4) No good cut point found, cut at maxRange and include "..." to indicate truncation
-    return "..." + p.text.slice(p.text.length - maxRange, p.text.length);
+    // 3) No good cut point found, cut at maxRange and include "..." to indicate truncation
+    return "..." + text.slice(text.length - maxRange, text.length);
   }
 };
 
@@ -103,7 +93,8 @@ export const getPassageWithSurroundingContext = (
       continue;
     }
 
-    precedingText = cutPassageFromStart(p) + precedingText;
+    // p.text would exceed context limit, cut it intelligently
+    precedingText = cutTextFromStart(p.text) + precedingText;
     break; // Stop after finding a cut point
   }
 
@@ -118,7 +109,8 @@ export const getPassageWithSurroundingContext = (
       continue;
     }
 
-    followingText += cutPassageFromEnd(p);
+    // p.text would exceed context limit, cut it intelligently
+    followingText += cutTextFromEnd(p.text);
     break; // Stop after finding a cut point
   }
 
@@ -128,7 +120,7 @@ export const getPassageWithSurroundingContext = (
 
 /**
  * Gets a ~1000 character context for highlight suggestions starting from a given passage. 
- * Intelligently cuts preceding and following passages.
+ * Cuts preceding and following text within 200 characters at a suitable point using cutPassageFromStart and cutPassageFromEnd.
  * @param startPassage The first passage from which the LLM will search for highlightsuggestions
  * @param passages current passages
  * @returns an object containing precedingText (for llm understanding) and mainText (the text to search for highlights)
@@ -136,34 +128,34 @@ export const getPassageWithSurroundingContext = (
 export const getContextForHighlightSuggestions = (
   startPassage: Passage,
   passages: Passage[],
+  searchStartIndex: number,
 ): { precedingText: string; mainText: string } => {
+  // If there's only one passage, return its text split at searchStartIndex
   if (passages.length === 1) {
-    return { precedingText: "", mainText: passages[0].text };
+    return { precedingText: passages[0].text.slice(0, searchStartIndex), mainText: passages[0].text.slice(searchStartIndex) };
   }
   
-
+  const beforeStartIdx = passages[0].text.slice(0, searchStartIndex);
+  const afterStartIdx = passages[0].text.slice(searchStartIndex);
   const passageOrder = startPassage.order;
   const precedingPassage = passages.find((p) => p.order === passageOrder - 1);
+
+  // Get preceding text
   const precedingText = precedingPassage
-    ? cutPassageFromStart(precedingPassage)
-    : "";
-  const contextSize = 1000;
-  let mainText = "";
-
-  // COLLECT PASSAGES //
-  for (let j = passageOrder; j < passages.length; j++) {
-    const p = passages.find((p) => p.order === j);
-    if (!p) break;
-
-    // Add text if within context limit
-    if (mainText.length + p.text.length <= contextSize) {
-      mainText += p.text;
-      continue;
-    }
-
-    mainText += cutPassageFromEnd(p);
-    break; // Stop after finding a cut point
+    ? cutTextFromStart(precedingPassage.text) + beforeStartIdx
+    : beforeStartIdx;
+  
+  // Get main text
+  const maxMainTextLength = 800; // Using 800 instead of 1000, because text cutting requires some buffer
+  
+  // If entire afterStartIdx fits within limit, return it
+  if (afterStartIdx.length <= maxMainTextLength) {
+    return {precedingText, mainText: afterStartIdx};
   }
+
+  let mainText = afterStartIdx.slice(0, maxMainTextLength);
+  // After 800, characters, look for a suitable cut point in remaining text
+  mainText += cutTextFromEnd(afterStartIdx.slice(mainText.length));
 
   return {precedingText, mainText}
 };

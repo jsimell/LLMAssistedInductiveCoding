@@ -62,7 +62,7 @@ export const useCodeManager = ({
         });
       } else {
         // If passage is not highlighted, fetch highlight suggestions
-        getNextHighlightSuggestion(targetPassage).then((suggestion) => {
+        getNextHighlightSuggestion(targetPassage, 0).then((suggestion) => {
           const isHighlighted = passages.find(p => p.id === targetPassage.id)?.isHighlighted || false; // Use an uo-to-date value
           setPassages((prev) => {
             const currentPassage = prev.find(p => p.id === targetPassageId);
