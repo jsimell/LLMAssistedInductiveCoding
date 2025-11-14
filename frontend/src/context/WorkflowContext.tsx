@@ -122,7 +122,7 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
 
   // Keep codebook in sync with the `codes` state
   useEffect(() => {
-    setCodebook(new Set(codes.map((c) => c.code)));
+    setCodebook(new Set(codes.map((c) => c.code.split(/;/)[0].trim()))); // Ensure that no trailing semicolon is included
   }, [codes]);
 
   // Combine all states + updaters into one object
