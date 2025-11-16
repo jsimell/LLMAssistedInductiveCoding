@@ -181,7 +181,7 @@ export const constructFewShotExamplesString = (passage: Passage, passages: Passa
       
       return JSON.stringify({
         passage: p.text,
-        surroundingContext: getPassageWithSurroundingContext(p, passages, 100),
+        surroundingContext: getPassageWithSurroundingContext(p, passages, 1), // Use 1 to cut at the first suitable break point before and after the passage
         codes: codes_
       });
     })
