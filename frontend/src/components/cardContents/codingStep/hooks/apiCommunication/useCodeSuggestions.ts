@@ -17,10 +17,13 @@ export const useCodeSuggestions = () => {
   /**
    * Gets code suggestions for a specific passage based on its existing codes and context.
    * @param passage - the text of the passage to get suggestions for
-   * @param codes - array of existing codes for the passage
    * @returns suggested codes as an array of strings
    */
-  const getCodeSuggestions = async (passage: Passage, existingCodes: string[]) => {
+  const getCodeSuggestions = async (passage: Passage) => {
+    const existingCodes = passage.codeIds
+      .map(cid => codes.find(c => c.id === cid)?.code || "")
+      .filter(Boolean);
+
     const systemPrompt = `
       ## ROLE:
       You are a qualitative coding assistant for rapid code suggestions. 
@@ -118,6 +121,7 @@ export const useCodeSuggestions = () => {
           
           return JSON.stringify({
             passage: p.text,
+            surroundingContext: getPassageWithSurroundingContext(p, passages, 100),
             codes: codes_
           });
         })

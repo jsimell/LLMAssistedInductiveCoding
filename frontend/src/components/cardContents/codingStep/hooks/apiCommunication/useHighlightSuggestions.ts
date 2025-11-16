@@ -5,7 +5,7 @@ import {
   WorkflowContext,
 } from "../../../../../context/WorkflowContext";
 import { callOpenAIStateless } from "../../../../../services/openai";
-import { getContextForHighlightSuggestions } from "../../utils/passageUtils";
+import { getContextForHighlightSuggestions, constructFewShotExamplesString } from "../../utils/passageUtils";
 
 const MAX_RETRY_ATTEMPTS = 2;
 const OPENAI_MODEL = "gpt-4.1"; // Define the model to use
@@ -84,7 +84,7 @@ export const useHighlightSuggestions = () => {
       **Additional context information:** ${contextInfo ?? "No additional context provided."}
       **Codebook:** [${Array.from(codebook).map((code) => `${code}`).join(", ")} ?? "No codes yet."]
       **Few-shot examples of user coded passages:** [
-        ${constructFewShotExamplesString(passage)}
+        ${constructFewShotExamplesString(passage, passages, codes)}
       ]
 
       ## CONTEXT WINDOW:
@@ -98,35 +98,6 @@ export const useHighlightSuggestions = () => {
       ${mainText}
       <<END OF MAIN TEXT>>
       `;
-  };
-
-  /** Constructs few-shot examples string for the system prompt based on existing coded passages.
-   *
-   * @returns The few-shot examples
-   */
-  const constructFewShotExamplesString = (passage: Passage) => {
-    const codedPassages = passages.filter((p) => p.codeIds.length > 0);
-    if (codedPassages.length === 0) {
-      return "No coded passages yet. Code as a professional qualitative analyst would.";
-    }
-
-    // Randomly choose up to 10 coded examples for few-shot examples
-    const fewShotExamples = codedPassages
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 10)
-      .map((p) => {
-        const codes_: string[] = p.codeIds
-          .map((id) => codes.find((c) => c.id === id)?.code)
-          .filter(Boolean) as string[];
-        
-        return JSON.stringify({
-          passage: p.text,
-          codes: codes_
-        });
-      })
-      .join(",\n");
-
-    return fewShotExamples
   };
 
 

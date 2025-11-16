@@ -1,4 +1,4 @@
-import { Passage } from "../../../../context/WorkflowContext";
+import { Code, Passage } from "../../../../context/WorkflowContext";
 
 /**
  * Goes through a string from the start to end and tries to find a suitable cut point within 200 characters.
@@ -158,4 +158,34 @@ export const getContextForHighlightSuggestions = (
   mainText += cutTextFromEnd(afterStartIdx.slice(mainText.length));
 
   return {precedingText, mainText}
+};
+
+/** Constructs few-shot examples string for the system prompt based on existing coded passages.
+ *
+ * @returns The few-shot examples
+ */
+export const constructFewShotExamplesString = (passage: Passage, passages: Passage[], codes: Code[]) => {
+  const codedPassages = passages.filter((p) => p.id !== passage.id && p.codeIds.length > 0);
+  if (codedPassages.length === 0) {
+    return "No coded passages yet. Code as a professional qualitative analyst would.";
+  }
+
+  // Randomly choose up to 10 coded examples for few-shot examples
+  const fewShotExamples = codedPassages
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 10)
+    .map((p) => {
+      const codes_: string[] = p.codeIds
+        .map((id) => codes.find((c) => c.id === id)?.code)
+        .filter(Boolean) as string[];
+      
+      return JSON.stringify({
+        passage: p.text,
+        surroundingContext: getPassageWithSurroundingContext(p, passages, 100),
+        codes: codes_
+      });
+    })
+    .join(",\n");
+
+  return fewShotExamples
 };
