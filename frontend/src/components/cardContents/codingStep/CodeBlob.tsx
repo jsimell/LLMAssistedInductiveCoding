@@ -8,7 +8,6 @@ import {
 } from "../../../context/WorkflowContext";
 import { useCodeManager } from "./hooks/useCodeManager";
 import { XMarkIcon } from "@heroicons/react/24/solid";
-import { useCodeSuggestions } from "./hooks/apiCommunication/useCodeSuggestions";
 
 interface CodeBlobProps {
   codeId: CodeId;
@@ -30,28 +29,22 @@ const CodeBlob = ({
 
   // CONTEXT
   const context = useContext(WorkflowContext)!; // Non-null assertion since parent already ensures WorkflowContext is provided
-  const { codes, codebook, aiSuggestionsEnabled } = context;
+  const { codes, aiSuggestionsEnabled } = context;
 
   // STATE
-  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<
-    string[]
-  >(Array.from(codebook));
   const [ghostText, setGhostText] = useState<string>("Type code...");
   const codeObject = codes.find((c) => c.id === codeId);
   if (!codeObject) return null;
   const [inputValue, setInputValue] = useState(codeObject.code);
     
   // REFS
-  const currentlyEnteredValueRef = useRef(inputValue);
   const suggestionsDisabledRef = useRef<boolean>(false); // When user declines a suggestion, temporarily disable further suggestions
-  const isFetchingRef = useRef(false);
   const changeIndexRef = useRef<number>(inputValue.length); // Track index where last change occurred
 
   // CUSTOM HOOKS
   const { deleteCode, updateCode } = useCodeManager({
     setActiveCodeId,
   });
-  const { getAutocompleteSuggestions } = useCodeSuggestions();
 
   // EFFECTS
   // Sync inputValue with global codes state when codes change (e.g., due to editAllInstancesOfCode)
@@ -76,11 +69,15 @@ const CodeBlob = ({
     if (afterLastSemicolon === "") {
       // Nothing typed after last semicolon, or nothing typed at all
       // Find the first suggestion that hasn't been typed yet
-      const suggestion = parentPassage.codeSuggestions.find(
-        (suggestion) => {
-          return !inputValue.toLowerCase().includes(suggestion.toLowerCase());
-        }
-      );
+      const inputValueLower = inputValue.toLowerCase();
+      const existingCodesSet = new Set(codes.map(c => c.code.toLowerCase())); // Use a set for faster lookup
+
+      const suggestion = parentPassage.codeSuggestions.find(suggestion => {
+        const suggestionLower = suggestion.toLowerCase();
+        const isNotInputted = !inputValueLower.includes(suggestionLower);
+        const isNotAnExistingCode = !existingCodesSet.has(suggestionLower);
+        return isNotInputted && isNotAnExistingCode;
+      });
       if (suggestion) {
         setGhostText(suggestion);
       } else {
@@ -88,7 +85,7 @@ const CodeBlob = ({
       }
     } else {
       // There is some text after the last semicolon, or the user has typed part of the first code
-      const matchingSuggestion = autocompleteSuggestions.find(
+      const matchingSuggestion = parentPassage.autocompleteSuggestions.find(
         (suggestion) =>
           suggestion
             .toLowerCase()
@@ -99,29 +96,12 @@ const CodeBlob = ({
         matchingSuggestion?.slice(afterLastSemicolon.trim().length) || ""
       );
     }
-  }, [inputValue, autocompleteSuggestions, parentPassage.codeSuggestions, aiSuggestionsEnabled]);
+  }, [inputValue, parentPassage.codeSuggestions, parentPassage.autocompleteSuggestions, aiSuggestionsEnabled]);
 
-  // Fetch autocomplete suggestions if this codeBlob is empty and becomes active
+  // Update autocomplete suggestions on reactivation
   useEffect(() => {
     if (activeCodeId !== codeId) return; // This effect should only run for the active code
     suggestionsDisabledRef.current = false;  // If suggestions were disabled before, re-enable them when code becomes active again
-
-    const fetchSuggestions = async () => {
-      if (isFetchingRef.current) return;
-      isFetchingRef.current = true;
-      const existingCodes = parentPassage.codeIds.map((id) => {
-        const codeObj = codes.find((c) => c.id === id);
-        return codeObj ? codeObj.code : "";
-      });
-      const suggestions = await getAutocompleteSuggestions(
-        parentPassage,
-        existingCodes
-      );
-      setAutocompleteSuggestions([...suggestions, ...Array.from(codebook)]); // Include codebook codes as well
-      isFetchingRef.current = false;
-    };
-
-    if (inputValue.trim().length === 0) fetchSuggestions();
   }, [activeCodeId]);
 
   // Ensure correct cursor position after input value changes
@@ -211,32 +191,20 @@ const CodeBlob = ({
     );
     if (!codeObject) return;
 
-    // Check if value changed since last enter
-    const valueChanged = currentlyEnteredValueRef.current !== inputValue;
-
-    updateCode(activeCodeId, inputValue); // Updates global state
-
-    // If value changed, fetch new suggestions for next time
-    if (valueChanged) {
-      currentlyEnteredValueRef.current = inputValue; // Update ref to current value
-
-      // Fetch new suggestions after the code is finalized
-      const fetchSuggestions = async () => {
-        if (isFetchingRef.current) return;
-        isFetchingRef.current = true;
-        const existingCodes = parentPassage.codeIds.map((id) => {
-          const codeObj = codes.find((c) => c.id === id);
-          return codeObj ? codeObj.code : "";
-        });
-        const suggestions = await getAutocompleteSuggestions(
-          parentPassage,
-          existingCodes
-        );
-        setAutocompleteSuggestions([...suggestions, ...Array.from(codebook)]);
-        isFetchingRef.current = false;
-      };
-
-      fetchSuggestions();
+    const cleanedInputValue = inputValue.trim().replace(/;+$/, ""); // Remove trailing semicolons
+    
+    if (cleanedInputValue === "") {
+      // If user entered an empty code, delete it
+      deleteCode(activeCodeId);
+      setActiveCodeId(null);
+      return;
+    }
+    
+    setInputValue(cleanedInputValue);
+    
+    // Only update codes if the value actually changed
+    if (cleanedInputValue !== codeObject.code) {
+      updateCode(activeCodeId, cleanedInputValue);
     }
     
     setActiveCodeId(null); // Set activeCodeId to null at the end

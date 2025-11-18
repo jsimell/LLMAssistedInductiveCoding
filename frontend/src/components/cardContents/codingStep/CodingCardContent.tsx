@@ -1,25 +1,14 @@
 import { useState, useContext, useEffect, useRef } from "react";
-import { CodeId, Passage, PassageId, WorkflowContext } from "../../../context/WorkflowContext";
+import { Passage, PassageId, WorkflowContext } from "../../../context/WorkflowContext";
 import ToggleSwitch from "../../ToggleSwitch";
 import Codebook from "./Codebook";
 import CodeBlob from "./CodeBlob";
 import { usePassageSegmenter } from "./hooks/usePassageSegmenter";
 import { QuestionMarkCircleIcon } from "@heroicons/react/24/solid";
 import SuggestionBlob from "./SuggestionBlob";
+import { useSuggestionsManager } from "./hooks/useSuggestionsManager";
 
 const CodingCardContent = () => {
-  // Local state for tracking the currently active passage and code input
-  const [activeCodeId, setActiveCodeId] = useState<CodeId | null>(null);
-  const [activePassageId, setActivePassageId] = useState<PassageId | null>(null);
-  const [hoveredPassageId, setHoveredPassageId] = useState<PassageId | null>(null);
-
-  const { createNewPassage } = usePassageSegmenter({
-    setActiveCodeId,
-  });
-
-  const visibleHighlightSuggestionRef = useRef<HTMLSpanElement>(null);
-  const activeCodeRef = useRef<HTMLSpanElement>(null);
-
   // Get global states and setters from the context
   const context = useContext(WorkflowContext);
   if (!context) {
@@ -32,7 +21,21 @@ const CodingCardContent = () => {
     setAiSuggestionsEnabled,
     contextWindowSize,
     setContextWindowSize,
+    showHighlightSuggestionFor,
+    setShowHighlightSuggestionFor,
+    activeCodeId,
+    setActiveCodeId,
   } = context;
+
+  // Local state for tracking the currently active passage and code input
+  const [activePassageId, setActivePassageId] = useState<PassageId | null>(null);
+  const [hoveredPassageId, setHoveredPassageId] = useState<PassageId | null>(null);
+  const [latestHighlightedPassageId, setLatestHighlightedPassageId] = useState<PassageId | null>(null);
+
+  const { createNewPassage } = usePassageSegmenter();
+  const { declineHighlightSuggestion } = useSuggestionsManager();
+
+  const activeCodeRef = useRef<HTMLSpanElement>(null);
 
   // Moving to the next step should be allowed by default in this step
   useEffect(() => {
@@ -62,6 +65,58 @@ const CodingCardContent = () => {
     }
   }, [activeCodeId]);
 
+  /* 
+   * When a new passage is highlighted, highlight suggestions should be shown for 
+   * the following uncoded passage (if it exists) 
+   */
+  useEffect(() => {
+    if (!latestHighlightedPassageId) return;
+
+    const highlightedPassage = passages.find(p => p.id === latestHighlightedPassageId);
+    if (!highlightedPassage) return;
+    
+    // Highlight suggestion should be shown on the following passage (if it exists)
+    // OR if the following passage is highlighted or very short (less than 5 chars), 
+    // on the first uncoded passage after that.
+    let nextPassageOrder = highlightedPassage.order + 1;
+    let followingPassage = passages.find(p => p.order === nextPassageOrder);
+    
+    while (followingPassage && (followingPassage.isHighlighted || followingPassage.text.length < 5)) {
+      nextPassageOrder += 1;
+      followingPassage = passages.find(p => p.order === nextPassageOrder);
+    }
+
+    console.log("Setting showHighlightSuggestionFor to passage:", followingPassage ? followingPassage.text.slice(0, 20) + "..." : null);
+    setShowHighlightSuggestionFor(followingPassage ? followingPassage.id : null); // Default to null if no suitable passage found
+
+  }, [latestHighlightedPassageId]);
+
+  // Handle Escape key to decline and tab key to accept suggestion if no code is being edited
+  useEffect(() => {
+    const handleEscapeOrTab = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" && e.key !== "Tab") return;
+      
+      // Read current state at event time
+      const currentSuggestionPassageId = showHighlightSuggestionFor;
+      const currentActiveCodeId = activeCodeId;
+      
+      if (currentActiveCodeId === null && currentSuggestionPassageId) {
+        e.preventDefault();
+        if (e.key === "Tab") {
+          handleAcceptSuggestion(currentSuggestionPassageId);
+        }
+        if (e.key === "Escape") {
+          setShowHighlightSuggestionFor(null);
+          setTimeout(() => declineHighlightSuggestion(currentSuggestionPassageId), 0);
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleEscapeOrTab);
+    return () => document.removeEventListener("keydown", handleEscapeOrTab);
+  }, [showHighlightSuggestionFor, activeCodeId, declineHighlightSuggestion]);
+
+
   /**
    *
    * @param p - the passage to be rendered
@@ -69,13 +124,16 @@ const CodingCardContent = () => {
    */
   const renderPassage = (p: Passage) => {
     return (
-      <span 
+      <div 
         key={p.id}
-        onMouseEnter={() => {
-          if (activePassageId !== p.id) setHoveredPassageId(p.id);
+        onClick={() => {
+          if (!p.isHighlighted && p.nextHighlightSuggestion === null) {
+            setShowHighlightSuggestionFor(p.id);
+          }
         }}
+        onMouseEnter={() => setHoveredPassageId(p.id)}
         onMouseLeave={() => setHoveredPassageId(null)}
-        className="inline-block"
+        className="inline"
       >
         <span>
           <span
@@ -95,9 +153,7 @@ const CodingCardContent = () => {
           >
             {renderPassageText(p)}
           </span>
-          <span 
-            className="inline-flex items-center"
-          >
+          <span>
             {p.codeIds?.length > 0 &&
               p.codeIds.map((codeId) => (
                 <CodeBlob
@@ -112,7 +168,7 @@ const CodingCardContent = () => {
               ))}
           </span>
         </span>
-      </span>
+      </div>
     );
   };
 
@@ -122,11 +178,10 @@ const CodingCardContent = () => {
    * @param passage - the passage for which to accept the suggestion
    */
   const handleAcceptSuggestion = (
-    e: React.MouseEvent<HTMLSpanElement, MouseEvent>,
-    parentPassage: Passage
+    parentPassageId: PassageId
   ) => {
-    e.stopPropagation();
-
+    const parentPassage = passages.find(p => p.id === parentPassageId);
+    if (!parentPassage) return;
     const suggestionText = parentPassage.nextHighlightSuggestion?.passage;
     if (!suggestionText) return;
 
@@ -135,28 +190,30 @@ const CodingCardContent = () => {
     const endIdx = startIdx + suggestionText.length;
 
     // 1) Hide suggestion so the passage DOM becomes a single text node again
-    setHoveredPassageId(null);
     setActivePassageId(null);
+    setShowHighlightSuggestionFor(null);
 
-    // 2) Next frame, build a Range on the plain text node and call createNewPassage
-    requestAnimationFrame(() => {
+    // 2) Use a timeout to ensure the DOM has updated before creating the range
+    setTimeout(() => {
       const root = document.getElementById(parentPassage.id);
       const textNode = root?.firstChild as Text | null;
+      let newPassageId: PassageId | null = null;
 
       if (textNode && textNode.nodeType === Node.TEXT_NODE) {
         const range = document.createRange();
         range.setStart(textNode, startIdx);
         range.setEnd(textNode, endIdx);
-        createNewPassage(range, [parentPassage.nextHighlightSuggestion!.code]);
+        newPassageId = createNewPassage(range, [parentPassage.nextHighlightSuggestion!.code + "; "]) ?? null;
       } else {
         // Fallback: select full contents if text node not available
         if (root) {
           const range = document.createRange();
           range.selectNodeContents(root);
-          createNewPassage(range);
+          newPassageId = createNewPassage(range) ?? null;
         }
       }
-    });
+      setLatestHighlightedPassageId(prev => newPassageId ?? prev);
+    }, 0);
   };
 
 
@@ -169,8 +226,8 @@ const CodingCardContent = () => {
     const showSuggestion = 
       !p.isHighlighted && 
       p.nextHighlightSuggestion && 
-      hoveredPassageId === p.id && 
-      activePassageId === null;
+      !activeCodeId &&
+      showHighlightSuggestionFor === p.id;
 
     if (!showSuggestion) return p.text;
 
@@ -187,13 +244,12 @@ const CodingCardContent = () => {
         <span 
           onClick={(e) => {
             e.stopPropagation();
-            handleAcceptSuggestion(e, p);
+            handleAcceptSuggestion(p.id);
           }}
           className="inline-block"
         >
           <span
-            ref={visibleHighlightSuggestionRef}
-            className=" bg-gray-300 cursor-pointer select-none"
+            className="bg-gray-300 cursor-pointer select-none"
           >
             {p.text.slice(startIdx, endIdx)}
           </span>
@@ -202,7 +258,7 @@ const CodingCardContent = () => {
           passage={p} 
           onClick={(e) => {
             e.stopPropagation();
-            handleAcceptSuggestion(e, p);
+            handleAcceptSuggestion(p.id);
           }}
         />
         {p.text.slice(endIdx)}
@@ -213,10 +269,13 @@ const CodingCardContent = () => {
   return (
     <div className="flex w-full gap-7">
       <div
+        onMouseDown={() => setShowHighlightSuggestionFor(null)}
         onMouseUp={() => {
           const selection = window.getSelection();
           if (selection && selection.rangeCount > 0) {
-            createNewPassage(selection.getRangeAt(0));
+            const range = selection.getRangeAt(0);
+            const newPassageId = createNewPassage(range);
+            setLatestHighlightedPassageId(prev => newPassageId ?? prev);
           }
         }}
         className="flex-1 rounded-xl border-1 border-outline p-8 text-onBackground text-base whitespace-pre-wrap"
@@ -235,11 +294,13 @@ const CodingCardContent = () => {
           </div>
           <div className="flex gap-4 items-center justify-between">
             <div className="flex gap-1 items-center">
-              <p>Context window size</p>
-              <QuestionMarkCircleIcon
-                className="size-4.5 text-tertiary"
-                title="The number of characters that the LLM will consider when suggesting codes for a highlighted passage. A larger context window may provide more relevant suggestions, but also increases response time."
-              />
+              <p>Context window for code suggestions (characters):</p>
+              <div>
+                <QuestionMarkCircleIcon
+                  className="size-4.5 text-tertiary"
+                  title="The number of characters that the LLM will consider when suggesting codes for a highlighted passage. A larger context window may provide more relevant suggestions, but also increases response time."
+                />
+              </div>
             </div>
             <input
               type="number"
@@ -251,7 +312,7 @@ const CodingCardContent = () => {
               }
               onBlur={(e) => {
                 if (e.target.value === "" || e.target.value === null) {
-                  setContextWindowSize(500); // Reset to default if input is empty
+                  setContextWindowSize(0); // Set to minimum value if input is empty
                 }
               }}
               onKeyDown={(e) => {

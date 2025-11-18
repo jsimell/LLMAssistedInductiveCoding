@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useCallback, useContext } from "react";
 import {
   HighlightSuggestion,
   Passage,
@@ -51,7 +51,7 @@ export const useHighlightSuggestions = () => {
       - Use a code from the codebook when possible.
       - Create a new code if the passage covers a concept not present in the codebook, ensuring consistency with codebook style and abstraction.
       4. Return the identified passage and code as specified.
-      5. If no relevant passage is found, respond with an empty JSON object: {}.
+      5. If no relevant passage is found, respond with empty strings for both passage and codeSuggestion.
 
       After each analysis, validate that the selected passage is an exact, 
       case-sensitive substring of the text between <<START OF MAIN TEXT>> and <<END OF MAIN TEXT>> and that the code precisely matches the codebook style. 
@@ -67,7 +67,7 @@ export const useHighlightSuggestions = () => {
       - Do NOT include explanations or text outside the returned object.
       - Do not indicate truncation in any way (e.g. "..." in the passage). The passage must be exact.
       - The suggested code MUST NOT include semicolons (;). If punctuation is needed, use a different delimiter.
-      - Start the code with a lowercase or an uppercase letter based on the style that is used in the codebook.
+      - Start the code with a lowercase letter unless it is a proper noun. However, if codebook consistently uses uppercase, follow that style.
       - The passage must be an exact, case-sensitive substring of the context window, including whitespace and punctuation.
       
       Example: coding a passage:
@@ -77,7 +77,10 @@ export const useHighlightSuggestions = () => {
       }
 
       Example: if no relevant passage is found:
-      {}
+      {
+      "passage": "",
+      "codeSuggestion": ""
+      }
 
       ## CONTEXT INFORMATION:
       **Research questions:** ${researchQuestions}
@@ -107,7 +110,7 @@ export const useHighlightSuggestions = () => {
    * @param searchStartIndex The index in the passage text from which to start searching for the next highlight.
    * @returns an object containing the suggested passage and codes, or null if valid suggestions could not be obtained.
    */
-  const getNextHighlightSuggestion = async (passage: Passage, searchStartIndex: number): Promise<HighlightSuggestion | null> => {
+  const getNextHighlightSuggestion = useCallback(async (passage: Passage, searchStartIndex: number): Promise<HighlightSuggestion | null> => {
     let attempt = 0;
     let clarificationMessage = "";
 
@@ -125,12 +128,6 @@ export const useHighlightSuggestions = () => {
           OPENAI_MODEL
         );
 
-        // Handle empty response indicating no relevant passage found
-        if (response.output_text.trim() === "{}") {
-          // No relevant passage found
-          return null;
-        }
-
         // Validate response format
         const parsedResponse = JSON.parse(response.output_text.trim());
         if (
@@ -144,8 +141,8 @@ export const useHighlightSuggestions = () => {
         ) {
           throw new Error("InvalidResponseFormatError: Response does not match the required format. Received response:" + response.output_text.trim());
         }
-        
-        // Success (no error caught) - update state and exit
+
+        // Success (no error caught) - return the suggestion
         return {passage: parsedResponse.passage, code: parsedResponse.codeSuggestion};
       } catch (error) {
         // Parsing failed, retry with a clarifying message
@@ -180,7 +177,7 @@ export const useHighlightSuggestions = () => {
 
     console.warn(`All attempts to fetch AI highlight suggestions for passage "${passage.text.slice(0, 25)}" failed. Returning no suggestions...`);
     return null; // Return null if all attempts fail
-  };
+  }, [apiKey, passages, researchQuestions, contextInfo, codebook, codes]);
 
   return {
     getNextHighlightSuggestion,

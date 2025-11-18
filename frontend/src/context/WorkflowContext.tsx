@@ -15,6 +15,7 @@ interface UnhighlightedPassage extends BasePassage {
   isHighlighted: false;
   codeIds: []; // No codes for unhighlighted passages
   codeSuggestions: []; // No code suggestions for unhighlighted passages
+  autocompleteSuggestions: []; // No autocomplete suggestions for unhighlighted passages
   nextHighlightSuggestion: HighlightSuggestion | null;
 }
 
@@ -23,6 +24,7 @@ interface HighlightedPassage extends BasePassage {
   isHighlighted: true;
   codeIds: CodeId[];
   codeSuggestions: string[];
+  autocompleteSuggestions: string[];
   nextHighlightSuggestion: null;
 }
 
@@ -46,7 +48,9 @@ export interface FileInfo {
 
 type Setter<T> = React.Dispatch<React.SetStateAction<T>>;
 
-export const WorkflowContext = createContext<WorkflowContextType | undefined>(undefined);
+export const WorkflowContext = createContext<WorkflowContextType | undefined>(
+  undefined
+);
 
 export interface WorkflowContextType {
   apiKey: string;
@@ -90,34 +94,55 @@ export interface WorkflowContextType {
 
   contextWindowSize: number | null;
   setContextWindowSize: Setter<number | null>;
+
+  showHighlightSuggestionFor: PassageId | null;
+  setShowHighlightSuggestionFor: Setter<PassageId | null>;
+
+  activeCodeId: CodeId | null;
+  setActiveCodeId: Setter<CodeId | null>;
 }
 
 export function WorkflowProvider({ children }: { children: React.ReactNode }) {
-
   // Global states
   const [apiKey, setApiKey] = useState<string>("");
   const [researchQuestions, setResearchQuestions] = useState<string>("");
   const [contextInfo, setContextInfo] = useState<string>("");
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
-  const [rawData, setRawData] = useState<string>("");   // The text content of the uploaded file
-  const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState<boolean>(true); // Global toggle
-  const [currentStep, setCurrentStep] = useState<number>(1);    // The current step of the workflow
-  const [proceedAvailable, setProceedAvailable] = useState<boolean>(false);  // Defines whether or not user can currently proceed to the next step
-  const [nextCodeIdNumber, setNextCodeIdNumber] = useState<number>(0);  // Next unique id for a new code
-  const [nextPassageIdNumber, setNextPassageIdNumber] = useState<number>(0);   // Next unique id for a new passage
-  const [passages, setPassages] = useState<Passage[]>([]);  // The passages of the data coding phase
-  const [codes, setCodes] = useState<Code[]>([]);  // The codes of the data coding phase (contains all code instances, even duplicates)
-  const [codebook, setCodebook] = useState<Set<string>>(new Set()) // Contains all unique codes
-  const [contextWindowSize, setContextWindowSize] = useState<number | null>(500); // Number of characters in the context window for AI suggestions
+  const [rawData, setRawData] = useState<string>(""); // The text content of the uploaded file
+  const [aiSuggestionsEnabled, setAiSuggestionsEnabled] =
+    useState<boolean>(true); // Global toggle
+  const [currentStep, setCurrentStep] = useState<number>(1); // The current step of the workflow
+  const [proceedAvailable, setProceedAvailable] = useState<boolean>(false); // Defines whether or not user can currently proceed to the next step
+  const [nextCodeIdNumber, setNextCodeIdNumber] = useState<number>(0); // Next unique id for a new code
+  const [nextPassageIdNumber, setNextPassageIdNumber] = useState<number>(0); // Next unique id for a new passage
+  const [passages, setPassages] = useState<Passage[]>([]); // The passages of the data coding phase
+  const [codes, setCodes] = useState<Code[]>([]); // The codes of the data coding phase (contains all code instances, even duplicates)
+  const [codebook, setCodebook] = useState<Set<string>>(new Set()); // Contains all unique codes
+  const [contextWindowSize, setContextWindowSize] = useState<number | null>(
+    500
+  ); // Number of characters in the context window for AI suggestions
+  const [showHighlightSuggestionFor, setShowHighlightSuggestionFor] = useState<PassageId | null>(null);
+  const [activeCodeId, setActiveCodeId] = useState<CodeId | null>(null);
 
   // Set the raw data as the first passage once it is uploaded
   useEffect(() => {
     if (rawData) {
-      setNextPassageIdNumber(prev => {
-        setPassages([{ id: `passage-${prev}`, order: 0, text: rawData, isHighlighted: false, codeIds: [], codeSuggestions: [], nextHighlightSuggestion: null }]);
+      setNextPassageIdNumber((prev) => {
+        setPassages([
+          {
+            id: `passage-${prev}`,
+            order: 0,
+            text: rawData,
+            isHighlighted: false,
+            codeIds: [],
+            codeSuggestions: [],
+            autocompleteSuggestions: [],
+            nextHighlightSuggestion: null,
+          },
+        ]);
         return prev + 1;
-      })
-    };
+      });
+    }
   }, [rawData]);
 
   // Keep codebook in sync with the `codes` state
@@ -127,20 +152,38 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
 
   // Combine all states + updaters into one object
   const value = {
-    apiKey, setApiKey,
-    researchQuestions, setResearchQuestions,
-    contextInfo, setContextInfo,
-    rawData, setRawData,
-    aiSuggestionsEnabled, setAiSuggestionsEnabled,
-    currentStep, setCurrentStep,
-    proceedAvailable, setProceedAvailable,
-    fileInfo, setFileInfo,
-    passages, setPassages,
-    codes, setCodes,
-    nextCodeIdNumber, setNextCodeIdNumber,
-    nextPassageIdNumber, setNextPassageIdNumber,
-    codebook, setCodebook,
-    contextWindowSize, setContextWindowSize,
+    apiKey,
+    setApiKey,
+    researchQuestions,
+    setResearchQuestions,
+    contextInfo,
+    setContextInfo,
+    rawData,
+    setRawData,
+    aiSuggestionsEnabled,
+    setAiSuggestionsEnabled,
+    currentStep,
+    setCurrentStep,
+    proceedAvailable,
+    setProceedAvailable,
+    fileInfo,
+    setFileInfo,
+    passages,
+    setPassages,
+    codes,
+    setCodes,
+    nextCodeIdNumber,
+    setNextCodeIdNumber,
+    nextPassageIdNumber,
+    setNextPassageIdNumber,
+    codebook,
+    setCodebook,
+    contextWindowSize,
+    setContextWindowSize,
+    showHighlightSuggestionFor,
+    setShowHighlightSuggestionFor,
+    activeCodeId,
+    setActiveCodeId,
   };
 
   // Make the states available to all children components

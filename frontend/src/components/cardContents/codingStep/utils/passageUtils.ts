@@ -135,8 +135,8 @@ export const getContextForHighlightSuggestions = (
     return { precedingText: passages[0].text.slice(0, searchStartIndex), mainText: passages[0].text.slice(searchStartIndex) };
   }
   
-  const beforeStartIdx = passages[0].text.slice(0, searchStartIndex);
-  const afterStartIdx = passages[0].text.slice(searchStartIndex);
+  const beforeStartIdx = startPassage.text.slice(0, searchStartIndex);
+  const afterStartIdx = startPassage.text.slice(searchStartIndex);
   const passageOrder = startPassage.order;
   const precedingPassage = passages.find((p) => p.order === passageOrder - 1);
 
