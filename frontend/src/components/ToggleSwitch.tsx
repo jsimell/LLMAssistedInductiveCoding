@@ -1,4 +1,10 @@
-const ToggleSwitch = ({ booleanState, setBooleanState, disabled = false }) => {
+interface ToggleSwitchProps {
+  booleanState: boolean;
+  setBooleanState: React.Dispatch<React.SetStateAction<boolean>>;
+  disabled?: boolean;
+}
+
+const ToggleSwitch = ({ booleanState, setBooleanState, disabled = false }: ToggleSwitchProps) => {
   return (
     <label className="relative inline-block w-11 h-5 cursor-pointer select-none">
       {/* Rail */}
