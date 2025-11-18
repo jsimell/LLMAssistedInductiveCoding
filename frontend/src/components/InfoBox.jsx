@@ -11,7 +11,7 @@ const InfoBox = ({ msg, icon: Icon, variant="neutral" }) => {
   return (
     <div className={`flex gap-3 items-center justify-center py-2 pl-6 pr-8 rounded-xl border ${variants[variant]}`}>
       {variant === "loading" 
-        ? <LoadingSymbol sizeClass="size-10" borderColorClass="border-gray-800" borderTopColorClass="border-t-gray-300"/> 
+        ? <LoadingSymbol sizeClass="size-8" borderColorClass="border-gray-800" borderTopColorClass="border-t-gray-300"/> 
         : Icon ? <Icon className="size-10"/> : <></>}
       <span>{msg}</span>
     </div>
