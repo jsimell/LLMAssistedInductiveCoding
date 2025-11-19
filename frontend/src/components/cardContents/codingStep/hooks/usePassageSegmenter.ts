@@ -101,6 +101,15 @@ export const usePassageSegmenter = () => {
     // 5. Create a variable for saving the of the highlighted passage to which the new code is attached
     let highlightedPassageId: PassageId | null = null;
 
+    let suggestionBeforeHighlighted = false;
+    let suggestionAfterHighlighted = false;
+    if (sourcePassage.nextHighlightSuggestion) {
+      suggestionBeforeHighlighted = beforeHighlighted.includes(sourcePassage.nextHighlightSuggestion.passage);
+      suggestionAfterHighlighted = afterHighlighted.includes(sourcePassage.nextHighlightSuggestion.passage);
+      // rare edge case where suggestion occurs fully in both -> keep it in beforeHighlighted only
+      if (suggestionBeforeHighlighted && suggestionAfterHighlighted) suggestionAfterHighlighted = false;
+    }
+
     // 5. Create new passages depending on edge cases
     let newPassages: Passage[] = [];
     // Case A: highlight covers entire passage (previously highlighted passages before and after):
@@ -139,7 +148,7 @@ export const usePassageSegmenter = () => {
           codeIds: [],
           codeSuggestions: [],
           autocompleteSuggestions: [],
-          nextHighlightSuggestion: null,
+          nextHighlightSuggestion: suggestionAfterHighlighted ? sourcePassage.nextHighlightSuggestion : null,
         },
       ];
       highlightedPassageId = `passage-${newPassageIdNumber - 2}`;
@@ -156,7 +165,7 @@ export const usePassageSegmenter = () => {
           codeIds: [],
           codeSuggestions: [],
           autocompleteSuggestions: [],
-          nextHighlightSuggestion: null,
+          nextHighlightSuggestion: suggestionBeforeHighlighted ? sourcePassage.nextHighlightSuggestion : null,
         },
         {
           id: getNextPassageId(),
@@ -183,7 +192,7 @@ export const usePassageSegmenter = () => {
           codeIds: [],
           codeSuggestions: [],
           autocompleteSuggestions: [],
-          nextHighlightSuggestion: null,
+          nextHighlightSuggestion: suggestionBeforeHighlighted ? sourcePassage.nextHighlightSuggestion : null,
         },
         {
           id: getNextPassageId(),
@@ -203,7 +212,7 @@ export const usePassageSegmenter = () => {
           codeIds: [],
           codeSuggestions: [],
           autocompleteSuggestions: [],
-          nextHighlightSuggestion: null,
+          nextHighlightSuggestion: suggestionAfterHighlighted ? sourcePassage.nextHighlightSuggestion : null,
         },
       ];
       highlightedPassageId = `passage-${newPassageIdNumber - 2}`;
