@@ -18,6 +18,8 @@ export const useSuggestionsManager = () => {
 
   // STATE
   const [suggestionQueue, setSuggestionQueue] = useState<Set<PassageId>>(new Set());
+  // For exporting highlight suggestion loading state
+  const [fetchingHighlightSuggestion, setFetchingHighlightSuggestion] = useState<boolean>(false);
 
   // REFS
   // Per-passage search start index for highlight suggestions
@@ -140,6 +142,7 @@ export const useSuggestionsManager = () => {
 
     if (inFlight.current.has(id)) return;
     setInFlight(id, true);
+    setFetchingHighlightSuggestion(true);
     try {
       // Prioritize provided startIndex, otherwise use stored one, or default to 0
       const suggestion = (searchStartIndex >= passage.text.length) ? null : await getNextHighlightSuggestion(passage, searchStartIndex);
@@ -155,6 +158,7 @@ export const useSuggestionsManager = () => {
       console.error("Error fetching highlight suggestion:", error);
     } finally {
       setInFlight(id, false);
+      setFetchingHighlightSuggestion(false);
     }
   };
 
@@ -255,5 +259,6 @@ export const useSuggestionsManager = () => {
 
   return {
     declineHighlightSuggestion,
+    fetchingHighlightSuggestion,
   };
 };

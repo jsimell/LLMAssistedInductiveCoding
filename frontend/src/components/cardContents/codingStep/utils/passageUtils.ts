@@ -123,7 +123,8 @@ export const getPassageWithSurroundingContext = (
  * Cuts preceding and following text within 200 characters at a suitable point using cutPassageFromStart and cutPassageFromEnd.
  * @param startPassage The first passage from which the LLM will search for highlightsuggestions
  * @param passages current passages
- * @returns an object containing precedingText (for llm understanding) and mainText (the text to search for highlights)
+ * @returns an object containing precedingText (for llm understanding, may contain text from preceding passage),
+ * and mainText (the text to search for highlights, is from startPassage in its entirety)
  */
 export const getContextForHighlightSuggestions = (
   startPassage: Passage,

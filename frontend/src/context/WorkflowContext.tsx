@@ -39,6 +39,7 @@ export interface Code {
 
 export interface HighlightSuggestion {
   passage: string;
+  startIndex: number;
   code: string;
 }
 
@@ -109,8 +110,7 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
   const [contextInfo, setContextInfo] = useState<string>("");
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
   const [rawData, setRawData] = useState<string>(""); // The text content of the uploaded file
-  const [aiSuggestionsEnabled, setAiSuggestionsEnabled] =
-    useState<boolean>(true); // Global toggle
+  const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState<boolean>(true); // Global toggle
   const [currentStep, setCurrentStep] = useState<number>(1); // The current step of the workflow
   const [proceedAvailable, setProceedAvailable] = useState<boolean>(false); // Defines whether or not user can currently proceed to the next step
   const [nextCodeIdNumber, setNextCodeIdNumber] = useState<number>(0); // Next unique id for a new code

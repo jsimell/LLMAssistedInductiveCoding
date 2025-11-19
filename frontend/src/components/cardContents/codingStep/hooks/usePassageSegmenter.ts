@@ -20,7 +20,8 @@ export const usePassageSegmenter = () => {
     setNextCodeIdNumber,
     nextPassageIdNumber,
     setNextPassageIdNumber,
-    setActiveCodeId
+    setActiveCodeId,
+    setShowHighlightSuggestionFor,
   } = context;
 
 
@@ -36,6 +37,7 @@ export const usePassageSegmenter = () => {
     if (range.collapsed) {
       return;
     }
+
     // Save relevant information about the range
     const startNode = range.startContainer;
     const endNode = range.endContainer;

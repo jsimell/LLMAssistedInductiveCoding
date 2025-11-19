@@ -7,6 +7,7 @@ import { usePassageSegmenter } from "./hooks/usePassageSegmenter";
 import { QuestionMarkCircleIcon } from "@heroicons/react/24/solid";
 import SuggestionBlob from "./SuggestionBlob";
 import { useSuggestionsManager } from "./hooks/useSuggestionsManager";
+import InfoBox from "../../InfoBox";
 
 const CodingCardContent = () => {
   // Get global states and setters from the context
@@ -33,7 +34,7 @@ const CodingCardContent = () => {
   const [latestHighlightedPassageId, setLatestHighlightedPassageId] = useState<PassageId | null>(null);
 
   const { createNewPassage } = usePassageSegmenter();
-  const { declineHighlightSuggestion } = useSuggestionsManager();
+  const { declineHighlightSuggestion, fetchingHighlightSuggestion } = useSuggestionsManager();
 
   const activeCodeRef = useRef<HTMLSpanElement>(null);
 
@@ -160,6 +161,59 @@ const CodingCardContent = () => {
     }, 0);
   };
 
+  const handleUserHighlight = (selection: Selection) => {
+    const range = selection.getRangeAt(0);
+    if (range.collapsed) return;
+
+    const parentElement = selection.anchorNode?.parentElement;
+    if (!parentElement) return;
+    const parentElementId = parentElement.id;
+
+    // If parent element id is a passage id, highlight is in a passage with no highlight suggestion showing -> proceed normally
+    if (passages.find(p => p.id === parentElementId)) {
+      createNewPassage(range);
+      return;
+    } else { // ELSE parent element is part of a passage with a visible suggestion -> special handling
+      const grandParentElement = parentElement.parentElement;
+      if (!grandParentElement) return;
+      // In this case, grandparent id contains the passage id, and parent id tells us was the highlight before or after the suggestion
+      const grandParentElementId = grandParentElement.id;
+      if (!grandParentElementId) return;
+
+      if (parentElementId === "highlight-suggestion") return; // Do not allow highlighting the suggestion itself
+
+      // Base case: selection is before suggestion so anchorOffset can be used directly
+      let startIdxInFullPassage = selection.anchorOffset; 
+
+      // Adjust start index if selection is after suggestion
+      if (parentElementId === "after-suggestion") {
+        const beforeLength = document.getElementById("before-suggestion")?.textContent.length ?? 0;
+        const suggestionLength = document.getElementById("highlight-suggestion")?.textContent.length ?? 0;
+        startIdxInFullPassage = beforeLength + suggestionLength + selection.anchorOffset;
+      }
+      const endIdxInFullPassage = startIdxInFullPassage + selection.toString().length;
+
+      // Set showHighlightSuggestionFor to null to hide suggestion before creating new passage
+      setShowHighlightSuggestionFor(null);
+
+      // Use setTimeout to ensure DOM updates before creating new passage
+      setTimeout(() => {
+        // Recreate range after DOM update
+        const rangeAfterDomUpdate = document.createRange();
+        // FINISH IMPLEMENT (use index obtained before setTimeout)
+        const root = document.getElementById(grandParentElementId);
+        const textNode = root?.firstChild as Text | null;
+        if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+          rangeAfterDomUpdate.setStart(textNode, startIdxInFullPassage);
+          rangeAfterDomUpdate.setEnd(textNode, endIdxInFullPassage);
+        } else {
+          return; // Fallback: do nothing if text node not found
+        }
+        createNewPassage(rangeAfterDomUpdate);
+      }, 0);
+    }
+  };
+
 
   /** 
    * Renders the text content of a passage, with highlight suggestion set to show on hover if available.
@@ -168,34 +222,31 @@ const CodingCardContent = () => {
    */
   const renderPassageText = (p: Passage) => {
     const showSuggestion = 
+      aiSuggestionsEnabled &&
       !p.isHighlighted && 
       p.nextHighlightSuggestion && 
       p.nextHighlightSuggestion.passage.trim().length > 0 &&
       !activeCodeId &&
       showHighlightSuggestionFor === p.id;
 
-    if (!showSuggestion) return p.text;
+    if (!showSuggestion || !p.nextHighlightSuggestion) return p.text;
 
-    const suggestionText = p.nextHighlightSuggestion!.passage;
-    const startIdx = p.text.indexOf(suggestionText);
-    
-    if (startIdx === -1) return p.text;
+    const suggestionText = p.nextHighlightSuggestion.passage;
+    const startIdx = p.nextHighlightSuggestion.startIndex;
 
     const endIdx = startIdx + suggestionText.length;
 
     return (
       <>
-        {p.text.slice(0, startIdx)}
+        <span id="before-suggestion">{p.text.slice(0, startIdx)}</span>
         <span 
           onClick={(e) => {
             e.stopPropagation();
             handleAcceptSuggestion(p.id);
           }}
-          className="inline-block"
+          className="inline"
         >
-          <span
-            className="bg-gray-300 cursor-pointer select-none"
-          >
+          <span id="highlight-suggestion" className="bg-gray-300 cursor-pointer select-none mr-1">
             {p.text.slice(startIdx, endIdx)}
           </span>
         </span>
@@ -206,7 +257,7 @@ const CodingCardContent = () => {
             handleAcceptSuggestion(p.id);
           }}
         />
-        {p.text.slice(endIdx)}
+        <span id="after-suggestion">{p.text.slice(endIdx)}</span>
       </>
     );
   };
@@ -224,6 +275,7 @@ const CodingCardContent = () => {
         onClick={(e) => {
           e.stopPropagation(); // Prevent triggering parent onMouseDown
           if (!p.isHighlighted) {
+            setActiveCodeId(null);
             setShowHighlightSuggestionFor(p.id);
           }
         }}
@@ -237,7 +289,7 @@ const CodingCardContent = () => {
             className={`
               ${
                 p.isHighlighted
-                  ? "bg-tertiaryContainer rounded-sm px-1 w-fit mr-1 cursor-default"
+                  ? "bg-tertiaryContainer rounded-sm w-fit mr-1 cursor-default"
                   : ""
               }
               ${
@@ -275,9 +327,7 @@ const CodingCardContent = () => {
         onMouseUp={() => {
           const selection = window.getSelection();
           if (selection && selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0);
-            const newPassageId = createNewPassage(range);
-            setLatestHighlightedPassageId(prev => newPassageId ?? prev);
+            handleUserHighlight(selection);
           }
         }}
         className="flex-1 rounded-xl border-1 border-outline p-8 text-onBackground text-base whitespace-pre-wrap"
@@ -286,7 +336,7 @@ const CodingCardContent = () => {
       </div>
       <div className="flex flex-col items-center gap-4 sticky top-5 h-fit w-fit min-w-50 max-w-sm">
         <Codebook />
-        <div className="flex flex-col gap-3 items-center justify-center rounded-xl border-1 border-outline p-6">
+        <div className="flex flex-col gap-3 items-center justify-center rounded-xl border-1 border-outline p-6 mb-4">
           <div 
             className="flex gap-2 w-full items-center justify-between"
           >
@@ -326,6 +376,7 @@ const CodingCardContent = () => {
             />
           </div>
         </div>
+        {fetchingHighlightSuggestion && !activeCodeId && <InfoBox msg="Fetching highlight suggestion..." icon={null} variant="loading"></InfoBox>}
       </div>
     </div>
   );

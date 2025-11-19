@@ -14,7 +14,7 @@ interface CodeBlobProps {
   parentPassage: Passage;
   activeCodeId: CodeId | null;
   setActiveCodeId: React.Dispatch<React.SetStateAction<CodeId | null>>;
-  setActivePassageId: React.Dispatch<React.SetStateAction<PassageId | null>>;
+  setActiveHighlightedPassageId: React.Dispatch<React.SetStateAction<PassageId | null>>;
   activeCodeRef: React.RefObject<HTMLSpanElement | null>;
 }
 
@@ -23,7 +23,7 @@ const CodeBlob = ({
   parentPassage,
   activeCodeId,
   setActiveCodeId,
-  setActivePassageId,
+  setActiveHighlightedPassageId,
   activeCodeRef,
 }: CodeBlobProps) => {
 
@@ -96,7 +96,7 @@ const CodeBlob = ({
         matchingSuggestion?.slice(afterLastSemicolon.trim().length) || ""
       );
     }
-  }, [inputValue, parentPassage.codeSuggestions, parentPassage.autocompleteSuggestions, aiSuggestionsEnabled]);
+  }, [activeCodeId, inputValue, parentPassage.codeSuggestions, parentPassage.autocompleteSuggestions, aiSuggestionsEnabled]);
 
   // Ensure correct cursor position after input value changes
   useEffect(() => {
@@ -278,7 +278,7 @@ const CodeBlob = ({
         }}
         onClick={() => {
           deleteCode(codeId);
-          setActivePassageId(null);
+          setActiveHighlightedPassageId(null);
         }}
         className={`bg-transparent ml-1.5 rounded-full hover:text-gray-800 hover:bg-onBackground/10 cursor-pointer
           ${activeCodeId === codeId ? "text-gray-700" : "text-gray-600"}`}

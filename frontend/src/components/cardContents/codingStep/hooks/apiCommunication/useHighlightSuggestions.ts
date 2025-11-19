@@ -142,8 +142,11 @@ export const useHighlightSuggestions = () => {
           throw new Error("InvalidResponseFormatError: Response does not match the required format. Received response:" + response.output_text.trim());
         }
 
+        // Find the start index of the suggested passage within the passage text
+        const startIdx = searchStartIndex + passage.text.slice(searchStartIndex).indexOf(parsedResponse.passage);
+
         // Success (no error caught) - return the suggestion
-        return {passage: parsedResponse.passage, code: parsedResponse.codeSuggestion};
+        return {passage: parsedResponse.passage, startIndex: startIdx, code: parsedResponse.codeSuggestion};
       } catch (error) {
         // Parsing failed, retry with a clarifying message
         clarificationMessage = `

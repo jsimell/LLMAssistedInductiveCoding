@@ -21,7 +21,7 @@ export const useCodeManager = ({
     throw new Error("useCodeManager must be used within a WorkflowProvider");
   }
 
-  const { codes, setCodes, passages, setPassages, nextCodeIdNumber, setNextCodeIdNumber } = context;
+  const { codes, setCodes, passages, setPassages, nextCodeIdNumber, setNextCodeIdNumber, setShowHighlightSuggestionFor } = context;
 
   /** Adds a new code to a passage and activates the added code.
    * 
@@ -226,6 +226,8 @@ export const useCodeManager = ({
       };
 
       idToUpdate = newMergedPassage.id;
+
+      setShowHighlightSuggestionFor(idToUpdate);
 
       // Insert the new merged passage and remove the old ones
       const filtered = prev.filter((p) => !passagesToRemove.includes(p.id));
