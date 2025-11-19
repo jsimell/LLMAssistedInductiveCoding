@@ -7,7 +7,7 @@ const WorkspaceCard = ({ title, children }) => {
   const { currentStep } = useContext(WorkflowContext);
 
   return (
-    <div className="flex flex-col h-full w-full border-2 rounded-3xl border-outline">
+    <div className="flex flex-col h-full w-full border-1 rounded-3xl border-onBackground shadow-sm">
       <WorkspaceCardHeader title={title}></WorkspaceCardHeader>
       <div className="flex flex-col flex-1 px-12 py-12 items-center bg-background text-onBackground text-base rounded-b-3xl">
         {children}
