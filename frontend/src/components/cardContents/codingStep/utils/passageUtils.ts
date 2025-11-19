@@ -5,7 +5,7 @@ import { Code, Passage } from "../../../../context/WorkflowContext";
  * @param text text to cut
  * @returns the text cut at a suitable point
  */
-const cutTextFromEnd = (text: string) => {
+export const cutTextFromEnd = (text: string) => {
   const maxRange = 200;
 
   // 1) Try to cut at a line break within the text length, and within maxRange
@@ -68,13 +68,15 @@ export const cutTextFromStart = (text: string) => {
  * Truncation appears within 200 characters at both the start and end of the context.
  * @param passage The passage object for which to get the surrounding context
  * @param passages All passages in the document
- * @param contextWindowSize Number of characters to include before and after the passage
+ * @param contextWindowSize Number of characters to include in the context window (including the passage text) (default: 500).
+ * If context window is 0
  * @returns A text window that contains the passage and its surrounding context
  */
 export const getPassageWithSurroundingContext = (
   passage: Passage,
   passages: Passage[],
-  contextWindowSize: number = 500
+  contextWindowSize: number = 500,
+  markPassageInResult: boolean = true
 ): string => {
   const passageOrder = passage.order;
   let precedingText = "";
@@ -114,7 +116,11 @@ export const getPassageWithSurroundingContext = (
     break; // Stop after finding a cut point
   }
 
-  return `${precedingText}<<<${passage.text}>>>${followingText}`;
+  if (markPassageInResult) {
+    return `${precedingText}<<<${passage.text}>>>${followingText}`;
+  } else {
+    return `${precedingText}${passage.text}${followingText}`;
+  }
 };
 
 

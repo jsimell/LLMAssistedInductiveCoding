@@ -3,10 +3,11 @@ import { WorkflowContext } from "../../context/WorkflowContext";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, LabelList } from 'recharts';
 import Button from "../Button";
 import { ArrowDownTrayIcon } from "@heroicons/react/24/solid";
+import { getPassageWithSurroundingContext } from "./codingStep/utils/passageUtils";
 
 const ResultsCardContent = () => {
   const context = useContext(WorkflowContext)!;
-  const { codes, passages, codebook, setProceedAvailable } = context;
+  const { codes, passages, codebook, setProceedAvailable, contextWindowSize } = context;
   const [data, setData] = useState<{ code: string; count: number }[]>([]);
 
   // Moving to the next step should be allowed by default in this step
@@ -35,7 +36,7 @@ const ResultsCardContent = () => {
 
   const handleFileDownload = () => {
     // Prepare CSV content
-    let csvContent = "data:text/csv;charset=utf-8,Passage,Codes\n";
+    let csvContent = "data:text/csv;charset=utf-8,Context,Passage,Codes\n";
     passages.forEach(p => {
       if (p.codeIds.length === 0) return; // Skip passages with no codes
       const passageCodes = p.codeIds
@@ -43,7 +44,11 @@ const ResultsCardContent = () => {
         .filter(Boolean) as string[];
       const uniqueCodes = Array.from(new Set(passageCodes));
       const codesString = uniqueCodes.join("; ");
-      csvContent += `"${p.text.replace(/"/g, '""')}","${codesString}"\n`;
+
+      // Get surrounding context to include it in the CSV
+      const context = getPassageWithSurroundingContext(p, passages, contextWindowSize ?? 500, false);
+
+      csvContent += `"${context.replace(/"/g, '""')}","${p.text.replace(/"/g, '""')}","${codesString}"\n`;
     });
 
     // Create a download link and trigger the download
