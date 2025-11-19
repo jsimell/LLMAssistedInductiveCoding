@@ -16,6 +16,8 @@ interface CodeBlobProps {
   setActiveCodeId: React.Dispatch<React.SetStateAction<CodeId | null>>;
   setActiveHighlightedPassageId: React.Dispatch<React.SetStateAction<PassageId | null>>;
   activeCodeRef: React.RefObject<HTMLSpanElement | null>;
+  clickedSuggestionsToggleRef: React.RefObject<boolean>;
+  isLastCodeOfPassage: boolean;
 }
 
 const CodeBlob = ({
@@ -25,6 +27,8 @@ const CodeBlob = ({
   setActiveCodeId,
   setActiveHighlightedPassageId,
   activeCodeRef,
+  clickedSuggestionsToggleRef,
+  isLastCodeOfPassage,
 }: CodeBlobProps) => {
 
   // CONTEXT
@@ -39,7 +43,7 @@ const CodeBlob = ({
     
   // REFS
   const suggestionsDisabledRef = useRef<boolean>(false); // When user declines a ghost text suggestion, disable suggestions for this code edit session
-  const changeIndexRef = useRef<number>(inputValue.length); // Track index where last change occurred
+  const changeIndexRef = useRef<number>(inputValue.length); // Track index where last change occurred inside contentEditable
 
   // CUSTOM HOOKS
   const { deleteCode, updateCode } = useCodeManager({
@@ -142,6 +146,7 @@ const CodeBlob = ({
     // ENTER: finalize editing of the current code
     if (e.key === "Enter") {
       e.preventDefault();
+      clickedSuggestionsToggleRef.current = false;
       activeCodeRef.current?.blur(); // Blur to trigger handleCodeEnter
       return;
     }
@@ -180,6 +185,14 @@ const CodeBlob = ({
   /** Updates the code into the global state. Fetches new autocomplete suggestions if the value changed */
   const handleCodeEnter = () => {
     if (activeCodeId === null) return; // For safety: should not happen
+    if (clickedSuggestionsToggleRef.current) {
+      // If code enter was caused by user clicking the suggestions toggle, refocus the code blob instead of updating the code
+      if (activeCodeRef.current) {
+        activeCodeRef.current.focus();
+      }
+      return;
+    }
+    clickedSuggestionsToggleRef.current = false;
 
     // Re-enable suggestions for next edit session
     suggestionsDisabledRef.current = false;
@@ -226,66 +239,69 @@ const CodeBlob = ({
 
 
   return (
-    <span
-      className={`
-        inline-flex items-center self-center w-fit pl-2 pr-1.5 mr-1 my-0.5
-      bg-tertiaryContainer border-1 border-gray-400 rounded-full hover:bg-tertiaryContainerHover 
-        ${
-          activeCodeId === codeId
-            ? "bg-tertiaryContainerHover outline-1 border border-onBackground outline-onBackground shadow-[0_0_0_2px_black]"
-            : ""
-        } 
-      `}
-      onClick={() => setActiveCodeId(codeId)}
-    >
+    <>
       <span
-        ref={(el) => {
-          if (activeCodeId === codeId) {
-            activeCodeRef.current = el;
-          }
-        }}
-        contentEditable={true}
-        suppressContentEditableWarning={true}
-        onInput={handleInputChange}
-        onFocus={() => setActiveCodeId(codeId)}
-        onBlur={handleCodeEnter} // blurring is essentially same as pressing enter
-        onKeyDown={(e) => handleKeyDown(e)}
-        className="bg-transparent outline-none whitespace-pre empty:before:content-['\200B']"
+        className={`
+          inline-flex items-center self-center w-fit pl-2 pr-1.5 mr-1 my-0.5
+        bg-tertiaryContainer border-1 border-gray-400 rounded-full hover:bg-tertiaryContainerHover 
+          ${
+            activeCodeId === codeId
+              ? "bg-tertiaryContainerHover outline-1 border border-onBackground outline-onBackground shadow-[0_0_0_2px_black]"
+              : ""
+          } 
+        `}
+        onClick={() => setActiveCodeId(codeId)}
       >
-        {inputValue}
-      </span>
-      {activeCodeId === codeId && !suggestionsDisabledRef.current && (
-        <span 
-          onMouseDown={(e) => {
-            e.preventDefault(); // Prevent blur event on contentEditable element
-          }}
-          onClick={() => {
-            // Focus the contentEditable element when ghost text is clicked
-            if (activeCodeRef.current) {
-              activeCodeRef.current.focus();
-              moveInputCursorToEnd();
+        <span
+          ref={(el) => {
+            if (activeCodeId === codeId) {
+              activeCodeRef.current = el;
             }
           }}
-          className="text-gray-500"
+          contentEditable={true}
+          suppressContentEditableWarning={true}
+          onInput={handleInputChange}
+          onFocus={() => setActiveCodeId(codeId)}
+          onBlur={handleCodeEnter} // blurring is essentially same as pressing enter
+          onKeyDown={(e) => handleKeyDown(e)}
+          className="bg-transparent outline-none whitespace-pre empty:before:content-['\200B']"
         >
-          {ghostText}
+          {inputValue}
         </span>
-      )}
-      <button
-        type="button"
-        onMouseDown={(e) => {
-          e.preventDefault(); // Prevent input from losing focus
-        }}
-        onClick={() => {
-          deleteCode(codeId);
-          setActiveHighlightedPassageId(null);
-        }}
-        className={`bg-transparent ml-1.5 rounded-full hover:text-gray-800 hover:bg-onBackground/10 cursor-pointer
-          ${activeCodeId === codeId ? "text-gray-700" : "text-gray-600"}`}
-      >
-        <XMarkIcon className="size-5" />
-      </button>
-    </span>
+        {activeCodeId === codeId && !suggestionsDisabledRef.current && (
+          <span 
+            onMouseDown={(e) => {
+              e.preventDefault(); // Prevent blur event on contentEditable element
+            }}
+            onClick={() => {
+              // Focus the contentEditable element when ghost text is clicked
+              if (activeCodeRef.current) {
+                activeCodeRef.current.focus();
+                moveInputCursorToEnd();
+              }
+            }}
+            className="text-gray-500"
+          >
+            {ghostText}
+          </span>
+        )}
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault(); // Prevent input from losing focus
+          }}
+          onClick={() => {
+            deleteCode(codeId);
+            setActiveHighlightedPassageId(null);
+          }}
+          className={`bg-transparent ml-1.5 rounded-full hover:text-gray-800 hover:bg-onBackground/10 cursor-pointer
+            ${activeCodeId === codeId ? "text-gray-700" : "text-gray-600"}`}
+        >
+          <XMarkIcon className="size-5" />
+        </button>
+      </span>
+      {isLastCodeOfPassage && parentPassage.text.endsWith("\n") && (<br />) /* Preserve trailing newlines after code blobs */}
+    </>
   );
 };
 

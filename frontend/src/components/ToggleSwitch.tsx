@@ -1,12 +1,13 @@
 interface ToggleSwitchProps {
   booleanState: boolean;
   setBooleanState: React.Dispatch<React.SetStateAction<boolean>>;
+  onMouseDown?: () => void;
   disabled?: boolean;
 }
 
-const ToggleSwitch = ({ booleanState, setBooleanState, disabled = false }: ToggleSwitchProps) => {
+const ToggleSwitch = ({ booleanState, setBooleanState, onMouseDown, disabled = false }: ToggleSwitchProps) => {
   return (
-    <label className="relative inline-block w-11 h-5 cursor-pointer select-none">
+    <label onMouseDown={onMouseDown} className="toggle-switch relative inline-block w-11 h-5 cursor-pointer select-none">
       {/* Rail */}
       <input
         type="checkbox"
@@ -14,6 +15,7 @@ const ToggleSwitch = ({ booleanState, setBooleanState, disabled = false }: Toggl
         onChange={(e) => setBooleanState(e.target.checked)}
         disabled={disabled}
         className="peer sr-only"
+         // prevents defocusing other elements (e.g. CodeBlobs) on click
       />
       <span
         className={`

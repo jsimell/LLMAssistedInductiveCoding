@@ -1,5 +1,5 @@
 import { useState, useContext, useEffect, useRef } from "react";
-import { Passage, PassageId, WorkflowContext } from "../../../context/WorkflowContext";
+import { CodeId, Passage, PassageId, WorkflowContext } from "../../../context/WorkflowContext";
 import ToggleSwitch from "../../ToggleSwitch";
 import Codebook from "./Codebook";
 import CodeBlob from "./CodeBlob";
@@ -37,6 +37,7 @@ const CodingCardContent = () => {
   const { declineHighlightSuggestion, fetchingHighlightSuggestion } = useSuggestionsManager();
 
   const activeCodeRef = useRef<HTMLSpanElement>(null);
+  const clickedSuggestionsToggleRef = useRef<boolean>(false); // Track if the most recent click was on the suggestions toggle
 
   // Moving to the next step should be allowed by default in this step
   useEffect(() => {
@@ -116,6 +117,20 @@ const CodingCardContent = () => {
     document.addEventListener("keydown", handleEscapeOrTab);
     return () => document.removeEventListener("keydown", handleEscapeOrTab);
   }, [showHighlightSuggestionFor, activeCodeId, declineHighlightSuggestion]);
+
+
+  // AHandles resetting clickedSuggestionsToggleRef on clicks outside the toggle
+  useEffect(() => {
+    const handleDocumentClick = (e: MouseEvent) => {
+      // Only reset if the click is not on the toggle switch
+      if (!(e.target as Element).closest('.toggle-switch')) {
+        clickedSuggestionsToggleRef.current = false;
+      }
+    };
+
+    document.addEventListener('click', handleDocumentClick);
+    return () => document.removeEventListener('click', handleDocumentClick);
+  }, []);
 
 
   /**
@@ -302,8 +317,8 @@ const CodingCardContent = () => {
             {renderPassageText(p)}
           </span>
           <span>
-            {p.codeIds?.length > 0 &&
-              p.codeIds.map((codeId) => (
+            {p.codeIds.length > 0 &&
+              p.codeIds.map((codeId, index) => (
                 <CodeBlob
                   key={codeId}
                   parentPassage={p}
@@ -312,6 +327,8 @@ const CodingCardContent = () => {
                   setActiveCodeId={setActiveCodeId}
                   setActiveHighlightedPassageId={setActiveHighlightedPassageId}
                   activeCodeRef={activeCodeRef}
+                  clickedSuggestionsToggleRef={clickedSuggestionsToggleRef}
+                  isLastCodeOfPassage={index === p.codeIds.length - 1}
                 />  
               ))}
           </span>
@@ -344,6 +361,9 @@ const CodingCardContent = () => {
             <ToggleSwitch
               booleanState={aiSuggestionsEnabled}
               setBooleanState={setAiSuggestionsEnabled}
+              onMouseDown={() => {
+                clickedSuggestionsToggleRef.current = true;
+              }}
             />
           </div>
           <div className="flex gap-4 items-center justify-between">
