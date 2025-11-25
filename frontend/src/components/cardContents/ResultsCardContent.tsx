@@ -63,7 +63,7 @@ const ResultsCardContent = () => {
 
   return (
     <div className="flex items-center gap-4">
-      <BarChart width={1000} height={400} data={data} margin={{ top: 20, right: 30, left: 100, bottom: 170 }}>
+      <BarChart width={1000} height={400} data={data} margin={{ top: 20, right: 30, left: 100, bottom: 150 }}>
         <XAxis dataKey="code" angle={-40} textAnchor="end" tickFormatter={truncateLabel} />
         <YAxis />
         <Tooltip />

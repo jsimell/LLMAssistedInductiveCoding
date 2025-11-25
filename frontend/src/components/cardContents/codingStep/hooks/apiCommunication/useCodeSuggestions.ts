@@ -32,13 +32,13 @@ export const useCodeSuggestions = () => {
       ## BEHAVIOR:
       - Under '## CONTEXT INFORMATION', you can find context information to help you suggest relevant codes.
       ${existingCodes.length === 0 
-        ? "- Your task is to code the passage, using the context as guidance."
-        : ` 
-        - Your task is to suggest ADDITIONAL codes to complement the existing codes of the target passage. 
-        - Do NOT suggest codes that are conceptually identical to any of the existing codes.
-        - The combination of existing and suggested codes should provide comprehensive coding for the passage.
-        - Do NOT include existing codes in your suggestions.
-        `}
+      ? "- Your task is to code the passage, using the context as guidance."
+      : ` 
+      - Your task is to suggest ADDITIONAL codes to complement the existing codes of the target passage. 
+      - Do NOT suggest codes that are conceptually identical to any of the existing codes.
+      - The combination of existing and suggested codes should provide comprehensive coding for the passage.
+      - Do NOT include existing codes in your suggestions.
+      `}
       ${codebook.size > 0 ? `
       - Reuse existing codes from the codebook whenever possible.
       - Only create a new code if it is conceptually distinct from all the codes in the codebook.
@@ -61,14 +61,14 @@ export const useCodeSuggestions = () => {
 
       ### SURROUNDING CONTEXT (for understanding only):
       The target passage appears in this context (target marked by <<< >>>):
-      "${getPassageWithSurroundingContext(passage, passages, contextWindowSize ?? 500)}"
+      "${getPassageWithSurroundingContext(passage, passages, contextWindowSize ?? 500, true)}"
 
       **CODE ONLY THE TARGET PASSAGE SHOWN ABOVE. Use the surrounding context to understand meaning and flow, but do NOT code the surrounding text.**
 
       ### ADDITIONAL CONTEXT:
       **Research questions:** "${researchQuestions}",
-      ${existingCodes.length > 0 ? `**Existing codes of the target passage:** [${existingCodes.join(", ")}],` : ""}
       ${contextInfo.trim() ? `**Contextual information about the data:** "${contextInfo}",` : ""}
+      ${existingCodes.length > 0 ? `**Existing codes of the target passage:** [${existingCodes.join(", ")}],` : ""}
       ${codebook.size > 0 ? `**Codebook:** [${Array.from(codebook)
         .map((code) => `${code}`)
         .join(", ")}].` : ""}
@@ -141,7 +141,7 @@ export const useCodeSuggestions = () => {
 
       ### SURROUNDING CONTEXT (for understanding only):
       The target passage appears in this context (target marked by <<< >>>):
-      "${getPassageWithSurroundingContext(passage, passages, contextWindowSize ?? 500)}"
+      "${getPassageWithSurroundingContext(passage, passages, contextWindowSize ?? 500, true)}"
 
       **CODE ONLY THE TARGET PASSAGE SHOWN ABOVE. Use the surrounding context to understand meaning and flow, but do NOT code the surrounding text.**
 

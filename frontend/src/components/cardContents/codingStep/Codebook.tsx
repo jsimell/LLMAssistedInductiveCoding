@@ -2,7 +2,13 @@ import { useContext, useMemo } from "react";
 import { WorkflowContext } from "../../../context/WorkflowContext";
 import CodeBookRow from "./CodeBookRow";
 
-const Codebook = () => {
+interface CodebookProps {
+  codeManager: {
+    editAllInstancesOfCode: (oldValue: string, newValue: string) => void;
+  };
+}
+
+const Codebook = ({ codeManager }: CodebookProps) => {
   const { codebook, codes } = useContext(WorkflowContext)!;
 
   const getCodeCount = (code: string) => {
@@ -23,7 +29,7 @@ const Codebook = () => {
       <div className="flex flex-col w-full px-6 py-4 items-center">
         {codebookArray.length === 0 && <p>No codes yet</p>}
         {codebookArray.map((code) => (
-          <CodeBookRow key={code} code={code} />
+          <CodeBookRow key={code} code={code} codeManager={codeManager} />
         ))}
       </div>
     </div>

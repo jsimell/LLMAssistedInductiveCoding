@@ -1,14 +1,16 @@
 import { PencilSquareIcon } from "@heroicons/react/24/solid";
 import { useContext, useEffect, useRef, useState } from "react";
 import { WorkflowContext } from "../../../context/WorkflowContext";
-import { useCodeManager } from "./hooks/useCodeManager.js";
 import SmallButton from "../../SmallButton.jsx";
 
 interface CodeBookRowProps {
   code: string;
+  codeManager: {
+    editAllInstancesOfCode: (oldValue: string, newValue: string) => void;
+  };
 }
 
-const CodeBookRow = ({ code }: CodeBookRowProps) => {
+const CodeBookRow = ({ code, codeManager }: CodeBookRowProps) => {
   if (!code.trim()) return null;
 
   const { codes } = useContext(WorkflowContext)!; // Non-null assertion since parent already ensures WorkflowContext is provided
@@ -18,9 +20,8 @@ const CodeBookRow = ({ code }: CodeBookRowProps) => {
   const editContainerRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const { editAllInstancesOfCode } = useCodeManager({
-    setActiveCodeId: () => {},
-  }); // Dummy setters since we don't need them here
+  // Extract the required function from codeManager
+  const { editAllInstancesOfCode } = codeManager; 
 
   // Auto-grow textarea as user types
   useEffect(() => {

@@ -69,14 +69,15 @@ export const cutTextFromStart = (text: string) => {
  * @param passage The passage object for which to get the surrounding context
  * @param passages All passages in the document
  * @param contextWindowSize Number of characters to include in the context window (including the passage text) (default: 500).
- * If context window is 0
+ * If context window is 0, the function starts looking for suitable cut points immediately before and after the passage text.
+ * @param markPassageInResult Whether to mark the passage text in the result with <<< >>> (default: true)
  * @returns A text window that contains the passage and its surrounding context
  */
 export const getPassageWithSurroundingContext = (
   passage: Passage,
   passages: Passage[],
   contextWindowSize: number = 500,
-  markPassageInResult: boolean = true
+  markPassageInResult: boolean,
 ): string => {
   const passageOrder = passage.order;
   let precedingText = "";
@@ -188,7 +189,7 @@ export const constructFewShotExamplesString = (passage: Passage, passages: Passa
       
       return JSON.stringify({
         passage: p.text,
-        surroundingContext: getPassageWithSurroundingContext(p, passages, 1), // Use 1 to cut at the first suitable break point before and after the passage
+        surroundingContext: getPassageWithSurroundingContext(p, passages, 50, false),
         codes: codes_
       });
     })

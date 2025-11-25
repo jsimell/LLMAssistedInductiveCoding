@@ -6,7 +6,6 @@ import {
   PassageId,
   WorkflowContext,
 } from "../../../context/WorkflowContext";
-import { useCodeManager } from "./hooks/useCodeManager";
 import { XMarkIcon } from "@heroicons/react/24/solid";
 
 interface CodeBlobProps {
@@ -14,10 +13,17 @@ interface CodeBlobProps {
   parentPassage: Passage;
   activeCodeId: CodeId | null;
   setActiveCodeId: React.Dispatch<React.SetStateAction<CodeId | null>>;
-  setActiveHighlightedPassageId: React.Dispatch<React.SetStateAction<PassageId | null>>;
-  activeCodeRef: React.RefObject<HTMLSpanElement | null>;
+  setPendingHighlightFetches: React.Dispatch<React.SetStateAction<Array<PassageId>>>;
   clickedSuggestionsToggleRef: React.RefObject<boolean>;
   isLastCodeOfPassage: boolean;
+  codeManager: {
+    updateCode: (cid: CodeId, newCodeValue: string) => PassageId | null;
+    deleteCode: (id: CodeId) => PassageId | null;
+    editAllInstancesOfCode: (oldValue: string, newValue: string) => void;
+  };
+  suggestionsManager: {
+    updateSuggestionsForPassage: (id: `passage-${number}`) => Promise<void>;
+  };
 }
 
 const CodeBlob = ({
@@ -25,15 +31,20 @@ const CodeBlob = ({
   parentPassage,
   activeCodeId,
   setActiveCodeId,
-  setActiveHighlightedPassageId,
-  activeCodeRef,
+  setPendingHighlightFetches,
   clickedSuggestionsToggleRef,
   isLastCodeOfPassage,
+  codeManager,
+  suggestionsManager,
 }: CodeBlobProps) => {
+
+  // Extract functions from the custom hooks passed via props
+  const { updateSuggestionsForPassage } = suggestionsManager;
+  const { deleteCode, updateCode } = codeManager;
 
   // CONTEXT
   const context = useContext(WorkflowContext)!; // Non-null assertion since parent already ensures WorkflowContext is provided
-  const { codes, passages, aiSuggestionsEnabled, setShowHighlightSuggestionFor } = context;
+  const { codes, passages, aiSuggestionsEnabled } = context;
 
   // STATE
   const [ghostText, setGhostText] = useState<string>("Type code...");
@@ -44,13 +55,38 @@ const CodeBlob = ({
   // REFS
   const suggestionsDisabledRef = useRef<boolean>(false); // When user declines a ghost text suggestion, disable suggestions for this code edit session
   const changeIndexRef = useRef<number>(inputValue.length); // Track index where last change occurred inside contentEditable
-
-  // CUSTOM HOOKS
-  const { deleteCode, updateCode } = useCodeManager({
-    setActiveCodeId,
-  });
+  const inputRef = useRef<HTMLSpanElement | null>(null);
 
   // EFFECTS
+  // Code blob should be active when first created IF it is the only code of the passage
+  useEffect(() => {
+    passages.find(p => p.id === parentPassage.id)?.codeIds.length === 1 &&
+      setActiveCodeId(codeId);
+  }, []);
+
+  // Active code blob should have focus
+  useEffect(() => {
+    if (activeCodeId === codeId) {
+      inputRef.current?.focus();
+    }
+  }, [activeCodeId]);
+
+  // Fetch new code suggestions and autocomplete suggestions for the parent passage when code blob is activated
+  useEffect(() => {
+    if (!aiSuggestionsEnabled) return;
+    if (!activeCodeId) return;
+    if (activeCodeId === codeId) {
+      // Only fetch suggestions if AI suggestions are enabled
+      if (aiSuggestionsEnabled) {
+        // Update suggestions for the parent passage
+        const fetchSuggestions = async () => {
+          await updateSuggestionsForPassage(parentPassage.id);
+        };
+        fetchSuggestions();
+      }
+    }
+  }, [activeCodeId]);
+
   // Sync inputValue with global codes state when codes change (e.g., due to editAllInstancesOfCode)
   useEffect(() => {
     const updatedCodeObject = codes.find((c) => c.id === codeId);
@@ -100,20 +136,27 @@ const CodeBlob = ({
         matchingSuggestion?.slice(afterLastSemicolon.trim().length) || ""
       );
     }
-  }, [activeCodeId, inputValue, parentPassage.codeSuggestions, parentPassage.autocompleteSuggestions, aiSuggestionsEnabled]);
+  }, [activeCodeId, inputValue, parentPassage, aiSuggestionsEnabled]);
 
   // Ensure correct cursor position after input value changes
   useEffect(() => {
     const changeIndex = changeIndexRef.current;
-    if (activeCodeRef.current) {
+    if (activeCodeId === codeId && inputRef.current) {
       const selection = window.getSelection();
       const range = document.createRange();
-      range.setStart(activeCodeRef.current.childNodes[0] || activeCodeRef.current, changeIndex);
+      range.setStart(inputRef.current?.childNodes[0] || inputRef.current, changeIndex);
       range.collapse(true);
       selection?.removeAllRanges();
       selection?.addRange(range);
     }
   }, [inputValue]);
+
+  // Ensure code input is defocused when activeCodeId changes to another code or null
+  useEffect(() => {
+    if (activeCodeId !== codeId) {
+      inputRef.current?.blur();
+    }
+  }, [activeCodeId, codeId]);
 
   /** 
    * 
@@ -147,7 +190,7 @@ const CodeBlob = ({
     if (e.key === "Enter") {
       e.preventDefault();
       clickedSuggestionsToggleRef.current = false;
-      activeCodeRef.current?.blur(); // Blur to trigger handleCodeEnter
+      inputRef.current?.blur(); // Blur to trigger handleCodeEnter
       return;
     }
 
@@ -170,7 +213,7 @@ const CodeBlob = ({
         return;
       } else {
         e.preventDefault();
-        activeCodeRef.current?.blur(); // Blur to trigger handleCodeEnter
+        inputRef.current?.blur(); // Blur to trigger handleCodeEnter
         return;
       }
     }
@@ -178,18 +221,30 @@ const CodeBlob = ({
     // DELETE: delete the current code
     if (e.key === "Delete") {
       e.preventDefault();
-      deleteCode(activeCodeId);
+      handleDeletion();
+      return;
     }
   };
 
+  /** Handles the deletion of a code, which may trigger highlight suggestion fetches.
+   * 
+   * @param codeId - the ID of the code to be deleted
+   */
+  const handleDeletion = () => {
+    const queueForSuggestionFetch = (passages.find(p => p.id === parentPassage.id)?.codeIds.length ?? 0) <= 1;
+    const affectedPassageId = deleteCode(codeId);
+    if (affectedPassageId && queueForSuggestionFetch) {
+      setPendingHighlightFetches(prev => [...prev, affectedPassageId]);
+    }
+  };
+
+
   /** Updates the code into the global state. */
-  const handleCodeEnter = () => {
+  const handleCodeEnter = async () => {
     if (activeCodeId === null) return; // For safety: should not happen
     if (clickedSuggestionsToggleRef.current) {
       // If code enter was caused by user clicking the suggestions toggle, refocus the code blob instead of updating the code
-      if (activeCodeRef.current) {
-        activeCodeRef.current.focus();
-      }
+      inputRef.current?.focus();
       return;
     }
     clickedSuggestionsToggleRef.current = false;
@@ -206,8 +261,7 @@ const CodeBlob = ({
     
     if (cleanedInputValue === "") {
       // If user entered an empty code, delete it
-      deleteCode(activeCodeId);
-      setActiveCodeId(null);
+      handleDeletion();
       return;
     }
     
@@ -215,14 +269,16 @@ const CodeBlob = ({
     
     // Only update codes if the value actually changed
     if (cleanedInputValue !== codeObject.code) {
-      updateCode(activeCodeId, cleanedInputValue);
+      const affectedPassageId = updateCode(activeCodeId, cleanedInputValue);
+      setTimeout(() => {
+        if (affectedPassageId) {
+          setPendingHighlightFetches(prev => [...prev, affectedPassageId]);
+        }
+      }, 0);
     }
 
-    const followingPassage = passages.find(p => p.order === parentPassage.order + 1);
-    const followingPassageId = followingPassage ? followingPassage.id : null;
-    if (followingPassageId) setShowHighlightSuggestionFor(followingPassageId)
-    
     setActiveCodeId(null); // Set activeCodeId to null at the end
+
     return;
   };
 
@@ -231,10 +287,10 @@ const CodeBlob = ({
    * Moves the input cursor to the end of the contentEditable element 
   */
   const moveInputCursorToEnd = () => {
-    if (!activeCodeRef.current) return;
+    if (!inputRef.current) return;
     const range = document.createRange();
         const selection = window.getSelection();
-        range.selectNodeContents(activeCodeRef.current);
+        range.selectNodeContents(inputRef.current);
         range.collapse(false); // false = collapse to end
         selection?.removeAllRanges();
         selection?.addRange(range);
@@ -254,15 +310,11 @@ const CodeBlob = ({
               : ""
           } 
         `}
-        onClick={() => setActiveCodeId(codeId)}
+        onClick={(e) => setActiveCodeId(codeId)}
       >
         <div className="inline whitespace-pre-wrap">
           <span
-            ref={(el) => {
-              if (activeCodeId === codeId) {
-                activeCodeRef.current = el;
-              }
-            }}
+            ref={inputRef}
             contentEditable={true}
             suppressContentEditableWarning={true}
             onInput={handleInputChange}
@@ -280,10 +332,8 @@ const CodeBlob = ({
               }}
               onClick={() => {
                 // Focus the contentEditable element when ghost text is clicked
-                if (activeCodeRef.current) {
-                  activeCodeRef.current.focus();
-                  moveInputCursorToEnd();
-                }
+                inputRef.current?.focus();
+                moveInputCursorToEnd();
               }}
               className="text-gray-500"
             >
@@ -296,9 +346,9 @@ const CodeBlob = ({
           onMouseDown={(e) => {
             e.preventDefault(); // Prevent input from losing focus
           }}
-          onClick={() => {
-            deleteCode(codeId);
-            setActiveHighlightedPassageId(null);
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDeletion();
           }}
           className={`bg-transparent ml-1.5 rounded-full hover:text-gray-800 hover:bg-onBackground/10 cursor-pointer
             ${activeCodeId === codeId ? "text-gray-700" : "text-gray-600"}`}

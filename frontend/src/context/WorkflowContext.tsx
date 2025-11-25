@@ -96,9 +96,6 @@ export interface WorkflowContextType {
   contextWindowSize: number | null;
   setContextWindowSize: Setter<number | null>;
 
-  showHighlightSuggestionFor: PassageId | null;
-  setShowHighlightSuggestionFor: Setter<PassageId | null>;
-
   activeCodeId: CodeId | null;
   setActiveCodeId: Setter<CodeId | null>;
 }
@@ -121,7 +118,6 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
   const [contextWindowSize, setContextWindowSize] = useState<number | null>(
     500
   ); // Number of characters in the context window for AI suggestions
-  const [showHighlightSuggestionFor, setShowHighlightSuggestionFor] = useState<PassageId | null>(null);
   const [activeCodeId, setActiveCodeId] = useState<CodeId | null>(null);
 
   // Set the raw data as the first passage once it is uploaded
@@ -180,8 +176,6 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
     setCodebook,
     contextWindowSize,
     setContextWindowSize,
-    showHighlightSuggestionFor,
-    setShowHighlightSuggestionFor,
     activeCodeId,
     setActiveCodeId,
   };

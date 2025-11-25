@@ -69,7 +69,8 @@ export const useHighlightSuggestions = () => {
       - The suggested code MUST NOT include semicolons (;). If punctuation is needed, use a different delimiter.
       - Start the code with a lowercase letter unless it is a proper noun. However, if codebook consistently uses uppercase, follow that style.
       - The passage must be an exact, case-sensitive substring of the context window, including whitespace and punctuation.
-      
+      - Escape any special characters in the passage value (e.g., double quotes as \", backslashes as \\, newlines as \n, tabs as \t, etc.) to prevent JSON parsing errors.
+
       Example: coding a passage:
       {
       "passage": "Relevant passage from the context window.",

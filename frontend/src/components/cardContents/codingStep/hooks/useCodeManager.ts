@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { Code, CodeId, Passage, PassageId, WorkflowContext } from "../../../../context/WorkflowContext";
+import { CodeId, Passage, PassageId, WorkflowContext } from "../../../../context/WorkflowContext";
 
 interface UseCodeManagerProps {
   setActiveCodeId: React.Dispatch<React.SetStateAction<CodeId | null>>;
@@ -21,66 +21,17 @@ export const useCodeManager = ({
     throw new Error("useCodeManager must be used within a WorkflowProvider");
   }
 
-  const { codes, setCodes, passages, setPassages, nextCodeIdNumber, setNextCodeIdNumber, setShowHighlightSuggestionFor } = context;
-
-  /** Adds a new code to a passage and activates the added code.
-   * 
-   * @param passageId Id of the passage to which the code will be added
-   * @param codeValue The code content (can be a single code or multiple codes separated by ';')
-   */
-  const addCode = (passage: Passage, codeValue: string) => {
-    let codeList = separateMultipleCodes(codeValue.trim());
-    // Edge case: if the codeValue is an empty string (i.e., user clicked the + button without typing anything)
-    if (codeValue.trim() === "") {
-      codeList = [""];
-    }
-    
-    let newCodeIdNumber = nextCodeIdNumber; // Extract numeric part
-    const getNextCodeId = () => {
-      const id = `code-${newCodeIdNumber++}` as CodeId;
-      return id;
-    }
-
-    setCodes((prev) => {
-      const newCodes = codeList.map((code) => {
-        const codeObj: Code = {
-          id: getNextCodeId(),
-          passageId: passage.id,
-          code: code,
-        };
-        return codeObj;
-      });
-      return [...prev, ...newCodes];
-    });
-
-    // Update passage to include new code IDs
-    const newCodeIds: CodeId[] = [];
-    for (let i = 0; i < codeList.length; i++) {
-      newCodeIds.push(getNextCodeId());
-    }
-    setPassages((prev) =>
-      prev.map((p) =>
-        p.id === passage.id
-          ? { ...p, isHighlighted: true, codeIds: [...p.codeIds, ...newCodeIds], nextHighlightSuggestion: null }
-          : p
-      )
-    );
-
-    // Update nextCodeId
-    setNextCodeIdNumber(newCodeIdNumber);
-
-    // Set the last added code as active
-    setActiveCodeId(newCodeIds[newCodeIds.length - 1]);
-    return;
-  };
+  // Context values
+  const { codes, setCodes, setPassages, nextCodeIdNumber, setNextCodeIdNumber, nextPassageIdNumber, setNextPassageIdNumber } = context;
 
 
   /** Updates the value of a specific code.
    * 
    * @param id - the id of the code to be updated
    * @param newValue - the new value of the code
+   * @return The PassageId of the passage containing the updated code, or null if no update was made
    */
-  const updateCode = (id: CodeId, newValue: string) => {
+  const updateCode = (id: CodeId, newValue: string): PassageId | null => {
     const codeList = separateMultipleCodes(newValue.trim());
 
     let newCodeIdNumber = nextCodeIdNumber;
@@ -91,19 +42,18 @@ export const useCodeManager = ({
 
     // Edge case: if no change, do nothing
     const existingCode = codes.find((c) => c.id === id);
-    if (!existingCode) return;
+    if (!existingCode) return null;
     if (codeList.length === 1 && codeList[0] === existingCode.code) {
-      return;
+      return null;
     }
 
     // Edge case: if user cleared the code completely (i.e. entered on an empty codeBlob), delete it instead
     if (codeList.length === 0) {
-      deleteCode(id);
-      return;
+      return deleteCode(id);
     }
 
     const codeObject = codes.find((c) => c.id === id);
-    if (!codeObject) return;
+    if (!codeObject) return null;
     const passageId: PassageId = codeObject.passageId;
 
     // Collect new code IDs that will be created (only for codes beyond the first)
@@ -148,7 +98,8 @@ export const useCodeManager = ({
 
     // No code should be active after update -> set activeCodeId to null
     setActiveCodeId(null);
-    return;
+
+    return passageId;
   };
 
   /**
@@ -156,18 +107,21 @@ export const useCodeManager = ({
    * @param id - the id of the code to be deleted
    */
   const deleteCode = (id: CodeId) => {
-    let idToUpdate: PassageId | null = null;
+    let affectedPassageId: PassageId | null = null;
+    let fetchHighlightSuggestion = true;
 
     setPassages((prev) => {
-      // 1. Find affected passage
+      // Find affected passage
       const affectedPassage = prev.find((p) => p.isHighlighted && p.codeIds.includes(id));
       if (!affectedPassage) return prev;
+      affectedPassageId = affectedPassage.id;
 
-      // 2. Remove code from passage's codeIds
+      // Remove code from passage's codeIds
       const filteredCodeIds = affectedPassage.codeIds.filter((cid) => cid !== id);
 
-      // 3. Check if passage still has codes and create properly typed passage
       let updatedPassage: Passage;
+
+      // If passage still has codes after deletion, just update its codeIds
       if (filteredCodeIds.length > 0) {
         updatedPassage = {
           ...affectedPassage,
@@ -175,23 +129,22 @@ export const useCodeManager = ({
           codeIds: filteredCodeIds,
           nextHighlightSuggestion: null,
         };
-        idToUpdate = updatedPassage.id;
+        fetchHighlightSuggestion = false; // If passage still has codes, no need to fetch highlight suggestion later
         return prev.map((p) =>
-          p.id === updatedPassage.id ? updatedPassage : p
+          p.id === affectedPassageId ? updatedPassage : p
         );
-      } else {
-        updatedPassage = {
-          ...affectedPassage,
-          isHighlighted: false,
-          codeIds: [],
-          codeSuggestions: [],
-          autocompleteSuggestions: [],
-          nextHighlightSuggestion: null,
-        };
       }
 
-      // 5. Otherwise: passage has no codes left and it may have to be merged with neighboring passages.
+      // Passage has no codes left and it may have to be merged with neighboring passages.
       // Find the neighbors of the passage based on order, to check whether they are empty and can be merged
+      updatedPassage = {
+        ...affectedPassage,
+        isHighlighted: false,
+        codeIds: [],
+        codeSuggestions: [],
+        autocompleteSuggestions: [],
+        nextHighlightSuggestion: null,
+      };
       const prevPassage = prev.find(
         (p) => p.order === updatedPassage.order - 1
       );
@@ -203,7 +156,7 @@ export const useCodeManager = ({
 
       // Determine merged text and which passages to remove from the passages state
       let mergedText = updatedPassage.text;
-      let passagesToRemove = [updatedPassage.id];
+      let passagesToRemove = [affectedPassageId];
       if (mergePrev) {
         mergedText = prevPassage.text + mergedText;
         passagesToRemove.push(prevPassage.id);
@@ -215,7 +168,7 @@ export const useCodeManager = ({
 
       // Create a new merged passage (empty codeIds)
       const newMergedPassage: Passage = {
-        id: updatedPassage.id, // reuse the current one’s id
+        id: affectedPassageId, // reuse the current one’s id
         order: mergePrev ? prevPassage.order : updatedPassage.order,
         text: mergedText,
         isHighlighted: false,
@@ -225,32 +178,30 @@ export const useCodeManager = ({
         nextHighlightSuggestion: null,
       };
 
-      idToUpdate = newMergedPassage.id;
-
-      setShowHighlightSuggestionFor(idToUpdate);
-
       // Insert the new merged passage and remove the old ones
       const filtered = prev.filter((p) => !passagesToRemove.includes(p.id));
       const inserted = [...filtered, newMergedPassage];
       const sorted = inserted.sort((a, b) => a.order - b.order);
-      return sorted.map((p, i) => ({ ...p, order: i }));
+      const reIndexed = sorted.map((p, i) => ({ ...p, order: i }));
+      return reIndexed;
     });
 
-    // 6. Remove code from codes array
+    // Remove code from codes array
     setCodes((prev) => prev.filter((c) => c.id !== id));
 
-    // 7. No code should be active after deletion -> set activeCodeId to null
+    // No code should be active after deletion -> set activeCodeId to null
     setActiveCodeId(null);
 
-    return;
+    return affectedPassageId;
   };
 
   const editAllInstancesOfCode = (oldValue: string, newValue: string) => {
-    const idsToEdit = codes.filter((c) => c.code === oldValue).map((c) => c.id);
-    const newArray = codes.map((code) =>
-      idsToEdit.includes(code.id) ? { ...code, code: newValue } : code
-    );
-    setCodes(newArray);
+    setCodes((prev) => {
+      const idsToEdit = prev.filter((c) => c.code === oldValue).map((c) => c.id);
+      return prev.map((code) =>
+        idsToEdit.includes(code.id) ? { ...code, code: newValue } : code
+      );
+    });
   };
 
   const separateMultipleCodes = (codeString: string) => {
@@ -261,5 +212,5 @@ export const useCodeManager = ({
     return codeList;
   };
 
-  return { addCode, updateCode, deleteCode, editAllInstancesOfCode };
+  return { updateCode, deleteCode, editAllInstancesOfCode };
 };
