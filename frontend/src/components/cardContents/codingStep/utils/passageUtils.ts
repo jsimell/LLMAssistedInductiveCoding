@@ -178,12 +178,12 @@ export const getContextForHighlightSuggestions = (
 
 /** Constructs few-shot examples string for the system prompt based on existing coded passages.
  *
- * @returns The few-shot examples
+ * @returns The few-shot examples, or a message indicating no coded passages exist.
  */
 export const constructFewShotExamplesString = (passage: Passage, passages: Passage[], codes: Code[]) => {
   const codedPassages = passages.filter((p) => p.id !== passage.id && p.codeIds.length > 0);
   if (codedPassages.length === 0) {
-    return "No coded passages yet. Code as a professional qualitative analyst would.";
+    return "No user coded passages yet. Code as a professional qualitative analyst would.";
   }
 
   // Randomly choose up to 10 coded examples for few-shot examples

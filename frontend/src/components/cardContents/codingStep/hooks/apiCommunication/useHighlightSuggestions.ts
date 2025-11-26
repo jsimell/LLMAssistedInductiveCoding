@@ -26,6 +26,7 @@ export const useHighlightSuggestions = () => {
     codes,
     codebook,
     apiKey,
+    codingGuidelines
   } = context;
 
 
@@ -37,73 +38,60 @@ export const useHighlightSuggestions = () => {
    * @returns A string prompt for the AI.
    */
   const constructSystemPrompt = (passage: Passage, precedingText: string, searchArea: string) => {
-    return `
-      ## ROLE:
-      You are an expert qualitative analyst AI assistant. 
-      Your primary task is to identify and code the next relevant passage from the provided context window, 
-      using provided information and examples as guidance.
+  return `
+    ## ROLE
+    You are an expert qualitative coding assistant. Your task is to identify and code the next relevant passage from the SEARCH AREA, using all provided context and examples as guidance.
 
-      ## RESEARCH CONTEXT:
-      **Research questions:** ${researchQuestions}
-      ${contextInfo && "**Additional context information about the research:**"} ${contextInfo || ""}
+    ## RESEARCH CONTEXT
+    Research questions: ${researchQuestions}
+    ${contextInfo ? `Additional research context: ${contextInfo}` : ""}
 
-      ## APPROACH:
-      1. Review the codebook and few-shot examples of user coded passages found under CODING STYLE EXAMPLES. You must use these to guide your coding style.
-      2. Read the text under CONTEXT WINDOW. From the SEARCH AREA (text between <<START OF SEARCH AREA>> and <<END OF SEARCH AREA>>) find the FIRST subpassage offering meaningful insight related to the research context.
-      - The selection style (length, cropping, detail) should mimic the few-shot examples, if they exist.
-      - It is important that you identify the FIRST relevant passage, not necessarily the most relevant one.
-      3. Code the passage with 1-5 relevant codes.
-      - Use relevant codes from the codebook when possible.
-      - Create new codes only if the passage covers concepts not present in the codebook, but ensureconsistency with codebook style and abstraction.
-      - Your codes should cover all the important aspects of the passage in relation to the research questions.
-      - However, avoid overcoding; only assign codes that cover concepts or observations your other code suggestions do not yet cover.
-      4. Return the identified passage and the suggested codes as specified under RESPONSE FORMAT.
-      5. If no relevant passage is found, respond with an empty string for the passage and an empty array for the codes.
+    ${codingGuidelines ? `## USER PROVIDED CODING GUIDELINES\n${codingGuidelines}` : ""}
 
-      After each analysis, validate that the selected passage is an exact, 
-      case-sensitive substring of the text between <<START OF SEARCH AREA>> and <<END OF SEARCH AREA>> and that the code precisely matches the codebook style. 
-      Only proceed if these criteria are met; otherwise, self-correct before responding.
+    ## USER'S CODING STYLE
+    Codebook: [${Array.from(codebook).map((code) => `${code}`).join(", ")}]
+    Few-shot examples of user coded passages: [${constructFewShotExamplesString(passage, passages, codes)}]
 
-      ## RESPONSE FORMAT:
-      - Return ONLY a valid JavaScript object in the following format:
+    ## TASK
+    1. Review the codebook and examples to match the user's coding style.
+    2. From the SEARCH AREA (between <<START OF SEARCH AREA>> and <<END OF SEARCH AREA>>), find the FIRST subpassage that provides meaningful insight related to the research context.
+       - Selection style (length, cropping, detail) should mimic the examples.
+       - It is important to select the FIRST relevant passage, not necessarily the most relevant one.
+    3. Assign 1-5 relevant codes:
+       - Prefer codebook codes; create new codes only if needed, matching codebook style.
+       - Cover all important aspects, but avoid overcoding.
+    4. If no relevant passage is found, return an empty string for "passage" and an empty array for "codes".
+    5. Validate that the selected passage is an exact, case-sensitive substring of the SEARCH AREA.
 
-      - Example 1: coding a passage:
-      {
-      "passage": "The first relevant passage from the search area. Must be an exact, case-sensitive substring from the context window",
-      "codes": ["suggested code 1", "suggested code 2", "suggested code 3"]
-      }
-
-      - Example 2: if no relevant passage is found:
-      {
+    ## RESPONSE FORMAT
+    Respond ONLY with a valid JavaScript object:
+    {
+      "passage": "exact, case-sensitive substring from SEARCH AREA (escaped for JSON)",
+      "codes": ["code1", "code2", ...]
+    }
+    If no relevant passage is found:
+    {
       "passage": "",
       "codes": []
-      }
+    }
+    - No explanations or extra text.
+    - No truncation indicators (e.g. "...").
+    - Codes must NOT contain semicolons (;).
+    - Start codes with lowercase unless codebook uses uppercase.
+    - Escape special characters in "passage" (e.g. double quotes as \\", newlines as \\n, tabs as \\t).
 
-      - Do NOT include explanations or text outside the returned object.
-      - Do not indicate truncation in any way (e.g. "..." in the passage).
-      - The suggested codes MUST NOT include semicolons (;). If punctuation is needed, use a different delimiter.
-      - Start the codes with a lowercase letter unless they are proper nouns. However, if codebook consistently uses uppercase, follow that style.
-      - The passage must be an exact, case-sensitive substring of the context window, including whitespace and punctuation.
-      - Escape any special characters in the passage value (e.g., double quotes as \", backslashes as \\, newlines as \n, tabs as \t, etc.) to prevent JSON parsing errors.
+    ## CONTEXT WINDOW
+    ${precedingText.trim().length > 0 ?
+    `### PRECEDING TEXT (for context only)
+    <<START OF PRECEDING TEXT>>
+    ${precedingText}
+    <<END OF PRECEDING TEXT>>` : ""}
 
-      ## CODING STYLE EXAMPLES:
-      **Codebook (all previous codes):** [${Array.from(codebook).map((code) => `${code}`).join(", ") ?? "No codes yet."}].
-      **Few-shot examples of user coded passages:** [
-        ${constructFewShotExamplesString(passage, passages, codes)}
-      ]
-
-      ## CONTEXT WINDOW:
-      ${precedingText.trim().length > 0 ?
-      `### PRECEDING TEXT (for understanding only):
-      <<START OF PRECEDING TEXT>>
-      ${precedingText}
-      <<END OF PRECEDING TEXT>>` : ""}
-      
-      ### SEARCH AREA (the suggested passage MUST be from here):
-      <<START OF SEARCH AREA>>
-      ${searchArea}
-      <<END OF SEARCH AREA>>
-      `;
+    ### SEARCH AREA (select passage ONLY from here)
+    <<START OF SEARCH AREA>>
+    ${searchArea}
+    <<END OF SEARCH AREA>>
+  `;
   };
 
 

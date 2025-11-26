@@ -98,6 +98,9 @@ export interface WorkflowContextType {
 
   activeCodeId: CodeId | null;
   setActiveCodeId: Setter<CodeId | null>;
+
+  codingGuidelines: string;
+  setCodingGuidelines: Setter<string>;
 }
 
 export function WorkflowProvider({ children }: { children: React.ReactNode }) {
@@ -119,6 +122,7 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
     500
   ); // Number of characters in the context window for AI suggestions
   const [activeCodeId, setActiveCodeId] = useState<CodeId | null>(null);
+  const [codingGuidelines, setCodingGuidelines] = useState<string>(""); // User-provided coding guidelines
 
   // Set the raw data as the first passage once it is uploaded
   useEffect(() => {
@@ -178,6 +182,8 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
     setContextWindowSize,
     activeCodeId,
     setActiveCodeId,
+    codingGuidelines,
+    setCodingGuidelines,
   };
 
   // Make the states available to all children components

@@ -12,7 +12,7 @@ export const useCodeSuggestions = () => {
       "useCodeSuggestions must be used within a WorkflowProvider"
     );
   }
-  const { researchQuestions, contextInfo, codebook, codes, apiKey, passages, contextWindowSize } = context;
+  const { researchQuestions, contextInfo, codebook, codes, apiKey, passages, contextWindowSize, codingGuidelines } = context;
 
   /**
    * Gets code suggestions for a specific passage based on its existing codes and context.
@@ -26,55 +26,37 @@ export const useCodeSuggestions = () => {
 
     const systemPrompt = `
       ## ROLE:
-      You are a qualitative coding assistant for rapid code suggestions. 
-      Given a specific passage, and context information, suggest relevant codes for the passage.
+      You are a qualitative coding assistant. Given a text passage and its surrounding context,
+      suggest relevant codes for the passage according to the instructions and information provided below.
 
-      ## BEHAVIOR:
-      - Under '## CONTEXT INFORMATION', you can find context information to help you suggest relevant codes.
+      ## RESEARCH CONTEXT
+      Research questions: ${researchQuestions}
+      ${contextInfo ? `Additional research context: ${contextInfo}` : ""}
+      
+      ${codingGuidelines ? `## USER PROVIDED CODING GUIDELINES \n${codingGuidelines}` : ""}
+
+      ## USER'S CODING STYLE
+      Codebook: [${Array.from(codebook).map((code) => `${code}`).join(", ")}]
+      Examples of user coded passages: [${constructFewShotExamplesString(passage, passages, codes)}]
+
+      ## TARGET PASSAGE
+      Passage to code: "${passage.text}"
+      Existing codes: ${existingCodes.length > 0 ? `[${existingCodes.join(", ")}]` : "None"}
+
+      ## TASK
       ${existingCodes.length === 0 
-      ? "- Your task is to code the passage, using the context as guidance."
-      : ` 
-      - Your task is to suggest ADDITIONAL codes to complement the existing codes of the target passage. 
-      - Do NOT suggest codes that are conceptually identical to any of the existing codes.
-      - The combination of existing and suggested codes should provide comprehensive coding for the passage.
-      - Do NOT include existing codes in your suggestions.
-      `}
-      ${codebook.size > 0 ? `
-      - Reuse existing codes from the codebook whenever possible.
-      - Only create a new code if it is conceptually distinct from all the codes in the codebook.
-      - If you create a new code, mimic the wording and style of the existing codes.`
-      : ""
-      }
-      - Only suggest codes that provide meaningful value in terms of the research questions.
-      - Avoid overcoding; only suggest codes that add meaningful value.
-      - If you can't think of any relevant codes, suggest no codes, and respond with an empty list [].
+        ? "Provide a comprehensive coding for the passage. Suggest 2-5 codes that capture the meaning of the passage wrt. the research questions."
+        : "Suggest additional codes that complement existing ones. Do not repeat or closely match existing codes. Total codes (existing + new) should be 2-5."}
+      Only suggest codes that provide meaningful value in terms of the research questions.
+      Reuse codebook codes if possible. Only create new codes if needed. Ensure new codes match the user's coding style. 
+      Cover ALL relevant aspects, but avoid overcoding. If you can't think of any relevant codes, return [].
+      Do NOT include any of the passage's existing codes in your suggestions.
 
-      ## RESPONSE FORMAT:
-      - Output ONLY a JSON array of code strings. No explanations or any text outside the JSON array.
-      - **IMPORTANT**: Codes MUST NOT contain semicolons (;). If punctuation is needed (should be rare), use a different delimiter.
-      - Start with a lowercase letter unless a code starts with a proper noun.
-      - Example: ["suggested code1", "suggested code2"]
+      ## RESPONSE FORMAT
+      Respond ONLY with a JSON array of code strings, e.g. ["code1", "code2", "code3"]. No explanations. Codes must never contain semicolons (;).
 
-      ## CONTEXT INFORMATION
-      ### TARGET PASSAGE TO CODE:
-      "${passage.text}"
-
-      ### SURROUNDING CONTEXT (for understanding only):
-      The target passage appears in this context (target marked by <<< >>>):
+      ## CONTEXT WINDOW (the target passage appears in this context between "<<<" and ">>>"):
       "${getPassageWithSurroundingContext(passage, passages, contextWindowSize ?? 500, true)}"
-
-      **CODE ONLY THE TARGET PASSAGE SHOWN ABOVE. Use the surrounding context to understand meaning and flow, but do NOT code the surrounding text.**
-
-      ### ADDITIONAL CONTEXT:
-      **Research questions:** "${researchQuestions}",
-      ${contextInfo.trim() ? `**Contextual information about the data:** "${contextInfo}",` : ""}
-      ${existingCodes.length > 0 ? `**Existing codes of the target passage:** [${existingCodes.join(", ")}],` : ""}
-      ${codebook.size > 0 ? `**Codebook:** [${Array.from(codebook)
-        .map((code) => `${code}`)
-        .join(", ")}].` : ""}
-      **Few-shot examples of user coded passages:** [
-        ${constructFewShotExamplesString(passage, passages, codes)}
-      ]
     `;
 
   let response = await callOpenAIStateless(apiKey, systemPrompt, OPENAI_MODEL);
@@ -111,50 +93,35 @@ export const useCodeSuggestions = () => {
 
     const systemPrompt = `
       ## ROLE:
-      You are a qualitative coding assistant for code autocompletion. 
-      Based on the context found under '## CONTEXT INFORMATION', suggest a large set of relevant codes for a specific passage.
-      The objective is to maximize the possibility that the user finds a suitable code while typing.
+      You are a qualitative coding assistant for code autocompletion. Given a passage and its context, suggest a broad set of relevant codes to maximize autocomplete matches.
 
-      ## TASK:
-      - Your task is to provide a comprehensive list of code suggestions for the target passage to maximize autocomplete matches.
-      - You should approach the problem as follows:
-        1) Generate 3-6 core codes conceptually distinct from the existing codes of the target passage.
-        2) For each core code, create 4-8 alternative phrasings/wordings.
-        3) Ensure that the wording and style of all codes aligns with the coding style displayed in '### ADDITIONAL CONTEXT'.
+      ## RESEARCH CONTEXT
+      Research questions: ${researchQuestions}
+      ${contextInfo ? `Additional research context: ${contextInfo}` : ""}
 
-      ## BEHAVIOR:
-      - Aim for breadth and variety in your suggestions to cover different aspects and interpretations of the target passage.
-      - Only suggest codes that are relevant and meaningful in terms of the research questions and the context.
-      - DO NOT include any codes from the existing codebook in your suggestions.
-      - DO NOT include any of the passage's existing codes in your suggestions.
-    
-      ## OUTPUT FORMAT:
-      Return ONLY an array like this: ["code1", "code2", "code3"]
-      - NO markdown, NO code blocks, NO explanations.
-      - Start with [ and end with ].
-      - Codes should start with a lowercase letter unless they start with a proper noun (e.g. "John").
-      - Codes MUST NOT contain semicolons (;). If semicolons are needed (should be rare), use a different delimiter.
+      ${codingGuidelines ? `## USER PROVIDED CODING GUIDELINES\n${codingGuidelines}` : ""}
 
-      ## CONTEXT INFORMATION
-      ### TARGET PASSAGE TO CODE:
-      "${passage.text}"
+      ## USER'S CODING STYLE
+      Codebook: [${Array.from(codebook).map((code) => `${code}`).join(", ")}]
+      Examples of user coded passages: [${constructFewShotExamplesString(passage, passages, codes)}]
 
-      ### SURROUNDING CONTEXT (for understanding only):
-      The target passage appears in this context (target marked by <<< >>>):
+      ## TARGET PASSAGE
+      Passage to code: "${passage.text}"
+      Existing codes: ${existingCodes.length > 0 ? `[${existingCodes.join(", ")}]` : "None"}
+
+      ## TASK
+      - Suggest 3-6 core codes, each conceptually distinct from existing codes.
+      - For each core code, provide 3-6 alternative phrasings.
+      - Total suggestions: ideally 9-36 codes.
+      - Ensure all codes are relevant to the research questions and context.
+      - Do NOT include any codes from the codebook or the passage's existing codes.
+      - Use the user's coding style for wording and format.
+
+      ## RESPONSE FORMAT
+      Respond ONLY with a JSON array of code strings, e.g. ["code1", "code2", "code3"]. No explanations. Codes must never contain semicolons (;).
+
+      ## CONTEXT WINDOW (the target passage appears in this context between "<<<" and ">>>"):
       "${getPassageWithSurroundingContext(passage, passages, contextWindowSize ?? 500, true)}"
-
-      **CODE ONLY THE TARGET PASSAGE SHOWN ABOVE. Use the surrounding context to understand meaning and flow, but do NOT code the surrounding text.**
-
-      ### ADDITIONAL CONTEXT:
-      **Research questions:** "${researchQuestions}",
-      **Existing codes of the target passage:** ${existingCodes.length > 0 ? `[${existingCodes.join(", ")}],` : "No codes yet."}
-      ${contextInfo.trim() ? `**Contextual information about the data:** "${contextInfo}",` : ""}
-      **Codebook:** ${codebook.size > 0 ? `[${Array.from(codebook)
-        .map((code) => `${code}`)
-        .join(", ")}].` : "No codes yet."}
-      **Few-shot examples of user coded passages:** [
-        ${constructFewShotExamplesString(passage, passages, codes)}
-      ]
     `;
 
     let response = await callOpenAIStateless(apiKey, systemPrompt, OPENAI_MODEL);

@@ -25,6 +25,8 @@ const CodingCardContent = () => {
     setContextWindowSize,
     activeCodeId,
     setActiveCodeId,
+    codingGuidelines,
+    setCodingGuidelines,
   } = context;
 
 
@@ -385,11 +387,11 @@ const CodingCardContent = () => {
             />
           </div>
           <div className="flex flex-col w-full">
-            <label htmlFor="additionalInstructions">Coding guidelines for the LLM:</label>
+            <label htmlFor="codingGuidelines">Coding guidelines for the LLM:</label>
             <textarea
-              id="additionalInstructions"
-              value={""}
-              onChange={() => {}}
+              id="codingGuidelines"
+              value={codingGuidelines}
+              onChange={(e) => setCodingGuidelines(e.target.value)}
               className="border-1 border-outline rounded-md p-1"
             />
           </div>
