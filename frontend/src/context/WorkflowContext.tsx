@@ -11,7 +11,7 @@ interface BasePassage {
 }
 
 // Unhighlighted passage (no codes)
-interface UnhighlightedPassage extends BasePassage {
+export interface UnhighlightedPassage extends BasePassage {
   isHighlighted: false;
   codeIds: []; // No codes for unhighlighted passages
   codeSuggestions: []; // No code suggestions for unhighlighted passages
@@ -20,7 +20,7 @@ interface UnhighlightedPassage extends BasePassage {
 }
 
 // Highlighted passage (has codes and AI suggestions)
-interface HighlightedPassage extends BasePassage {
+export interface HighlightedPassage extends BasePassage {
   isHighlighted: true;
   codeIds: CodeId[];
   codeSuggestions: string[];
@@ -43,9 +43,10 @@ export interface HighlightSuggestion {
   codes: string[];
 }
 
-export interface FileInfo {
-  name: string;
-}
+export interface CSVdata { data: string[] };
+export interface PlainTextData { data: string }
+
+export type CodingData = CSVdata | PlainTextData | null;
 
 type Setter<T> = React.Dispatch<React.SetStateAction<T>>;
 
@@ -63,11 +64,11 @@ export interface WorkflowContextType {
   contextInfo: string;
   setContextInfo: Setter<string>;
 
-  fileInfo: FileInfo | null;
-  setFileInfo: Setter<FileInfo | null>;
+  uploadedFile: File | null;
+  setUploadedFile: Setter<File | null>;
 
-  rawData: string;
-  setRawData: Setter<string>;
+  data: CodingData;
+  setData: Setter<CodingData>;
 
   aiSuggestionsEnabled: boolean;
   setAiSuggestionsEnabled: Setter<boolean>;
@@ -108,8 +109,8 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
   const [apiKey, setApiKey] = useState<string>("");
   const [researchQuestions, setResearchQuestions] = useState<string>("");
   const [contextInfo, setContextInfo] = useState<string>("");
-  const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
-  const [rawData, setRawData] = useState<string>(""); // The text content of the uploaded file
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [data, setData] = useState<CodingData | null>(null); // The text content of the uploaded file
   const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState<boolean>(true); // Global toggle
   const [currentStep, setCurrentStep] = useState<number>(1); // The current step of the workflow
   const [proceedAvailable, setProceedAvailable] = useState<boolean>(false); // Defines whether or not user can currently proceed to the next step
@@ -124,27 +125,6 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
   const [activeCodeId, setActiveCodeId] = useState<CodeId | null>(null);
   const [codingGuidelines, setCodingGuidelines] = useState<string>(""); // User-provided coding guidelines
 
-  // Set the raw data as the first passage once it is uploaded
-  useEffect(() => {
-    if (rawData) {
-      setNextPassageIdNumber((prev) => {
-        setPassages([
-          {
-            id: `passage-${prev}`,
-            order: 0,
-            text: rawData,
-            isHighlighted: false,
-            codeIds: [],
-            codeSuggestions: [],
-            autocompleteSuggestions: [],
-            nextHighlightSuggestion: null,
-          },
-        ]);
-        return prev + 1;
-      });
-    }
-  }, [rawData]);
-
   // Keep codebook in sync with the `codes` state
   useEffect(() => {
     setCodebook(new Set(codes.map((c) => c.code.split(/;/)[0].trim()))); // Ensure that no trailing semicolon is included
@@ -158,16 +138,16 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
     setResearchQuestions,
     contextInfo,
     setContextInfo,
-    rawData,
-    setRawData,
+    uploadedFile,
+    setUploadedFile,
+    data,
+    setData,
     aiSuggestionsEnabled,
     setAiSuggestionsEnabled,
     currentStep,
     setCurrentStep,
     proceedAvailable,
     setProceedAvailable,
-    fileInfo,
-    setFileInfo,
     passages,
     setPassages,
     codes,

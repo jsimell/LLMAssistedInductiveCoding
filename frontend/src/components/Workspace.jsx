@@ -1,5 +1,5 @@
 import WorkspaceCard from './WorkspaceCard'
-import DataUploadCardContent from './cardContents/DataUploadCardContent'
+import DataUploadCardContent from './cardContents/dataUploadStep/DataUploadCardContent'
 import AccessAPICardContent from './cardContents/AccessAPICardContent'
 import ResearchContextCardContent from './cardContents/ResearchContextCardContent'
 import CodingCardContent from './cardContents/codingStep/CodingCardContent'

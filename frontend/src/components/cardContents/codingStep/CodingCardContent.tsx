@@ -1,5 +1,5 @@
 import { useState, useContext, useEffect, useRef } from "react";
-import { CodeId, Passage, PassageId, WorkflowContext } from "../../../context/WorkflowContext";
+import { CodeId, Passage, PassageId, HighlightedPassage, UnhighlightedPassage, WorkflowContext } from "../../../context/WorkflowContext";
 import ToggleSwitch from "../../ToggleSwitch";
 import Codebook from "./Codebook";
 import CodeBlob from "./CodeBlob";
@@ -346,7 +346,7 @@ const CodingCardContent = () => {
       <div className="flex flex-col items-center gap-4 h-fit w-fit min-w-50 max-w-sm">
         <Codebook codeManager={codeManager} />
         <CodingSettingsCard clickedSuggestionsToggleRef={clickedSuggestionsToggleRef} />
-        {isFetchingHighlightSuggestion && !activeCodeId && <InfoBox msg="Fetching highlight suggestion..." icon={null} variant="loading"></InfoBox>}
+        {isFetchingHighlightSuggestion && !activeCodeId && <InfoBox msg="Fetching highlight suggestion..." variant="loading"></InfoBox>}
       </div>
     </div>
   );

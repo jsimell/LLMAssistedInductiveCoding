@@ -11,7 +11,7 @@ const ResearchContextCardContent = () => {
     setContextInfo,
     setProceedAvailable,
   } = useContext(WorkflowContext);
-  const [currentRQs, setCurrentRQs] = useState("How do the interviewees perceive the user experience of the system? How does it compare to their previous experiences with qualitative coding?");
+  const [currentRQs, setCurrentRQs] = useState("How do the users perceive the user experience of the system? How does it compare to their previous experiences with qualitative coding?");
   const [currentContextInfo, setCurrentContextInfo] = useState("The data is from a group user interview with three interviewees and one interviewer, conducted after testing of an AI assisted inductive coding system.");
   const formRef = useRef(null);
 
