@@ -23,7 +23,7 @@ const CodingSettingsCard = ({ clickedSuggestionsToggleRef }: CodingSettingsCardP
   } = context;
 
   return (
-    <div className="flex flex-col gap-5 items-center justify-center rounded-xl border-1 border-outline p-6 mb-4">
+    <div className="flex flex-col gap-5 items-center justify-center rounded-lg border-1 border-outline p-6 mb-4">
       <div 
         className="flex gap-2 w-full items-center justify-between"
       >

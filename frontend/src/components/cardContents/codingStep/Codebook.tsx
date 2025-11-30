@@ -98,8 +98,8 @@ const Codebook = ({ codeManager }: CodebookProps) => {
   };
 
   return (
-    <div className="flex flex-col items-center w-full h-fit rounded-xl border-1 border-outline">
-      <div className="flex h-fit w-full items-center justify-center px-4.5 pt-4 pb-3.5 border-b border-outline rounded-t-xl bg-container text-primary">
+    <div className="flex flex-col items-center w-full h-fit rounded-lg border-1 border-outline">
+      <div className="flex h-fit w-full items-center justify-center px-4.5 pt-4 pb-3.5 border-b border-outline rounded-t-lg bg-container text-primary">
         <p className="text-lg font-semibold">Codebook</p>
       </div>
       <div className="flex flex-col w-full px-6 py-4 items-center">
