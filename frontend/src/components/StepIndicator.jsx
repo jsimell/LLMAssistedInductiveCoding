@@ -17,7 +17,7 @@ const StepIndicator = ({ label, idx }) => {
   return (
     <div 
       className={`flex gap-4 h-fit w-fit rounded-xl pr-2 items-center
-        ${isClickable ? "cursor-pointer hover:bg-primary/10 hover:text-primary" : ""}
+        ${isClickable ? "cursor-pointer hover:bg-primary/10 hover:text-primary" : "cursor-default"}
       `}
       onClick={handleClick}
       title={isClickable ? `Return to the '${label}' step` : undefined}
