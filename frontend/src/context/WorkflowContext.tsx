@@ -11,7 +11,7 @@ interface BasePassage {
 }
 
 // Unhighlighted passage (no codes)
-export interface UnhighlightedPassage extends BasePassage {
+interface UnhighlightedPassage extends BasePassage {
   isHighlighted: false;
   codeIds: []; // No codes for unhighlighted passages
   codeSuggestions: []; // No code suggestions for unhighlighted passages
@@ -20,7 +20,7 @@ export interface UnhighlightedPassage extends BasePassage {
 }
 
 // Highlighted passage (has codes and AI suggestions)
-export interface HighlightedPassage extends BasePassage {
+interface HighlightedPassage extends BasePassage {
   isHighlighted: true;
   codeIds: CodeId[];
   codeSuggestions: string[];
@@ -125,9 +125,17 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
   const [activeCodeId, setActiveCodeId] = useState<CodeId | null>(null);
   const [codingGuidelines, setCodingGuidelines] = useState<string>(""); // User-provided coding guidelines
 
-  // Keep codebook in sync with the `codes` state
+  // Ensure that all the distinct codes in 'codes' are also in 'codebook'
+  // However, this must not remove any codes that are in 'codebook' but not in 'codes'
   useEffect(() => {
-    setCodebook(new Set(codes.map((c) => c.code.split(/;/)[0].trim()))); // Ensure that no trailing semicolon is included
+    setCodebook((prev) => {
+      const merged = new Set(prev);
+      for (const c of codes) {
+        const cleaned = c.code.split(/;/)[0].trim();
+        if (cleaned) merged.add(cleaned);
+      }
+      return merged;
+    });
   }, [codes]);
 
   // Combine all states + updaters into one object
