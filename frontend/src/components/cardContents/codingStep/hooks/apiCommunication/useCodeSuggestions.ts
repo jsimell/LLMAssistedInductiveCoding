@@ -38,7 +38,7 @@ export const useCodeSuggestions = () => {
       Research questions: ${researchQuestions}
       ${contextInfo ? `Additional research context: ${contextInfo}` : ""}
       
-      ${codingGuidelines ? `## USER PROVIDED CODING GUIDELINES \n${codingGuidelines}` : ""}
+      ${codingGuidelines?.trim().length > 0 ? `## USER PROVIDED CODING GUIDELINES \n${codingGuidelines}` : ""}
 
       ## USER'S CODING STYLE
       Codebook: [${Array.from(codebook).map((code) => `${code}`).join(", ")}]
@@ -109,7 +109,7 @@ export const useCodeSuggestions = () => {
       Research questions: ${researchQuestions}
       ${contextInfo ? `Additional research context: ${contextInfo}` : ""}
 
-      ${codingGuidelines ? `## USER PROVIDED CODING GUIDELINES\n${codingGuidelines}` : ""}
+      ${codingGuidelines?.trim().length > 0 ? `## USER PROVIDED CODING GUIDELINES\n${codingGuidelines}` : ""}
 
       ## USER'S CODING STYLE
       Codebook: [${Array.from(codebook).map((code) => `${code}`).join(", ")}]

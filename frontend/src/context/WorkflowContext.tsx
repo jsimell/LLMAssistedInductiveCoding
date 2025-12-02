@@ -43,11 +43,6 @@ export interface HighlightSuggestion {
   codes: string[];
 }
 
-export interface CSVdata { data: string[], hasHeaders: boolean };
-export interface PlainTextData { data: string }
-
-export type CodingData = CSVdata | PlainTextData | null;
-
 type Setter<T> = React.Dispatch<React.SetStateAction<T>>;
 
 export const WorkflowContext = createContext<WorkflowContextType | undefined>(
@@ -64,17 +59,26 @@ export interface WorkflowContextType {
   contextInfo: string;
   setContextInfo: Setter<string>;
 
+  codingGuidelines: string;
+  setCodingGuidelines: Setter<string>;
+
   uploadedFile: File | null;
   setUploadedFile: Setter<File | null>;
 
-  data: CodingData;
-  setData: Setter<CodingData>;
+  rawData: string;
+  setRawData: Setter<string>;
 
-  aiSuggestionsEnabled: boolean;
-  setAiSuggestionsEnabled: Setter<boolean>;
+  csvHeaders: string[] | null;
+  setCsvHeaders: Setter<string[] | null>;
+
+  parsedCSVdata: string[][];
+  setParsedCSVdata: Setter<string[][]>;
 
   currentStep: number;
   setCurrentStep: Setter<number>;
+
+  visitedSteps: Set<number>;
+  setVisitedSteps: Setter<Set<number>>;
 
   proceedAvailable: boolean;
   setProceedAvailable: Setter<boolean>;
@@ -82,8 +86,14 @@ export interface WorkflowContextType {
   passages: Passage[];
   setPassages: Setter<Passage[]>;
 
+  passagesPerColumn: Map<number, Passage[]> | null;
+  setPassagesPerColumn: Setter<Map<number, Passage[]> | null>;
+
   codes: Code[];
   setCodes: Setter<Code[]>;
+
+  codebook: Set<string>;
+  setCodebook: Setter<Set<string>>;
 
   nextCodeIdNumber: number;
   setNextCodeIdNumber: Setter<number>;
@@ -91,39 +101,47 @@ export interface WorkflowContextType {
   nextPassageIdNumber: number;
   setNextPassageIdNumber: Setter<number>;
 
-  codebook: Set<string>;
-  setCodebook: Setter<Set<string>>;
-
-  contextWindowSize: number | null;
-  setContextWindowSize: Setter<number | null>;
-
   activeCodeId: CodeId | null;
   setActiveCodeId: Setter<CodeId | null>;
 
-  codingGuidelines: string;
-  setCodingGuidelines: Setter<string>;
+  aiSuggestionsEnabled: boolean;
+  setAiSuggestionsEnabled: Setter<boolean>;
+
+  contextWindowSize: number | null;
+  setContextWindowSize: Setter<number | null>;
 }
 
 export function WorkflowProvider({ children }: { children: React.ReactNode }) {
-  // Global states
+  // Global configuration and information for prompts
   const [apiKey, setApiKey] = useState<string>("");
   const [researchQuestions, setResearchQuestions] = useState<string>("");
   const [contextInfo, setContextInfo] = useState<string>("");
+  const [codingGuidelines, setCodingGuidelines] = useState<string>(""); // User-provided coding guidelines
+
+  // Data upload states
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [data, setData] = useState<CodingData | null>(null); // The text content of the uploaded file
-  const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState<boolean>(true); // Global toggle
+  const [rawData, setRawData] = useState<string>("");
+  const [csvHeaders, setCsvHeaders] = useState<string[] | null>(null);
+  const [parsedCSVdata, setParsedCSVdata] = useState<string[][]>([]);
+
+  // Workflow progression states
   const [currentStep, setCurrentStep] = useState<number>(1); // The current step of the workflow
   const [proceedAvailable, setProceedAvailable] = useState<boolean>(false); // Defines whether or not user can currently proceed to the next step
-  const [nextCodeIdNumber, setNextCodeIdNumber] = useState<number>(0); // Next unique id for a new code
-  const [nextPassageIdNumber, setNextPassageIdNumber] = useState<number>(0); // Next unique id for a new passage
+  const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([1])); // Steps that have been visited at least once. Used to freely allow moving between visited steps.
+
+  // States for data coding
   const [passages, setPassages] = useState<Passage[]>([]); // The passages of the data coding phase
+  const [passagesPerColumn, setPassagesPerColumn] = useState<Map<number, Passage[]> | null>(null);
   const [codes, setCodes] = useState<Code[]>([]); // The codes of the data coding phase (contains all code instances, even duplicates)
   const [codebook, setCodebook] = useState<Set<string>>(new Set()); // Contains all unique codes
+  const [nextCodeIdNumber, setNextCodeIdNumber] = useState<number>(0); // Next unique id for a new code
+  const [nextPassageIdNumber, setNextPassageIdNumber] = useState<number>(0); // Next unique id for a new passage
+  const [activeCodeId, setActiveCodeId] = useState<CodeId | null>(null);
+  const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState<boolean>(true); // Global toggle
   const [contextWindowSize, setContextWindowSize] = useState<number | null>(
     500
   ); // Number of characters in the context window for AI suggestions
-  const [activeCodeId, setActiveCodeId] = useState<CodeId | null>(null);
-  const [codingGuidelines, setCodingGuidelines] = useState<string>(""); // User-provided coding guidelines
+
 
   // Ensure that all the distinct codes in 'codes' are also in 'codebook'
   // However, this must not remove any codes that are in 'codebook' but not in 'codes'
@@ -138,6 +156,13 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
     });
   }, [codes]);
 
+
+  // On change of current step, mark it as visited
+  useEffect(() => {
+    setVisitedSteps((prev) => new Set(prev).add(currentStep));
+  }, [currentStep]);
+
+
   // Combine all states + updaters into one object
   const value = {
     apiKey,
@@ -146,32 +171,40 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
     setResearchQuestions,
     contextInfo,
     setContextInfo,
+    codingGuidelines,
+    setCodingGuidelines,
     uploadedFile,
     setUploadedFile,
-    data,
-    setData,
-    aiSuggestionsEnabled,
-    setAiSuggestionsEnabled,
+    rawData,
+    setRawData,
+    csvHeaders,
+    setCsvHeaders,
+    parsedCSVdata,
+    setParsedCSVdata,
     currentStep,
     setCurrentStep,
     proceedAvailable,
     setProceedAvailable,
+    visitedSteps,
+    setVisitedSteps,
     passages,
     setPassages,
+    passagesPerColumn,
+    setPassagesPerColumn,
     codes,
     setCodes,
+    codebook,
+    setCodebook,
     nextCodeIdNumber,
     setNextCodeIdNumber,
     nextPassageIdNumber,
     setNextPassageIdNumber,
-    codebook,
-    setCodebook,
-    contextWindowSize,
-    setContextWindowSize,
     activeCodeId,
     setActiveCodeId,
-    codingGuidelines,
-    setCodingGuidelines,
+    aiSuggestionsEnabled,
+    setAiSuggestionsEnabled,
+    contextWindowSize,
+    setContextWindowSize,
   };
 
   // Make the states available to all children components

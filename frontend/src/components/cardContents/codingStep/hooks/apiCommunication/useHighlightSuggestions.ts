@@ -48,7 +48,7 @@ export const useHighlightSuggestions = () => {
     Research questions: ${researchQuestions}
     ${contextInfo ? `Additional research context: ${contextInfo}` : ""}
 
-    ${codingGuidelines ? `## USER PROVIDED CODING GUIDELINES\n${codingGuidelines}` : ""}
+    ${codingGuidelines?.trim().length > 0 ? `## USER PROVIDED CODING GUIDELINES\n${codingGuidelines}` : ""}
 
     ## USER'S CODING STYLE
     Codebook: [${Array.from(codebook).map((code) => `${code}`).join(", ")}]
@@ -79,6 +79,7 @@ export const useHighlightSuggestions = () => {
     }
     - No explanations or extra text.
     - No truncation indicators (e.g. "...").
+    - No JSON tags or markdown formatting.
     - Codes must NOT contain semicolons (;).
     - Start codes with lowercase unless codebook uses uppercase.
     - If you suggest a passage, the codes array must never be empty.
@@ -105,7 +106,7 @@ export const useHighlightSuggestions = () => {
     Research questions: ${researchQuestions}
     ${contextInfo ? `Additional research context: ${contextInfo}` : ""}
 
-    ${codingGuidelines ? `## USER PROVIDED CODING GUIDELINES\n${codingGuidelines}` : ""}
+    ${codingGuidelines?.trim().length > 0 ? `## USER PROVIDED CODING GUIDELINES\n${codingGuidelines}` : ""}
 
     ## USER'S CODING STYLE
     Codebook: [${Array.from(codebook).map((code) => `${code}`).join(", ")}]
@@ -141,7 +142,7 @@ export const useHighlightSuggestions = () => {
     - Start codes with lowercase unless codebook uses uppercase.
     - The "passage" MUST be an exact, case-sensitive substring of the SEARCH AREA.
     - Escape special characters in "passage" (e.g. double quotes as \\", newlines as \\n, tabs as \\t).
-    - The end-of-row token \\u001E may appear only at the very end of your suggestion.
+    - Do not include the end of row token \\u001E in your response.
     
     ## CONTEXT WINDOW
     ${precedingText.trim().length > 0 ?

@@ -103,7 +103,7 @@ const ResearchContextCardContent = () => {
       {researchQuestions && (
         <div className="pt-5 pb-5 w-full">
           <p className="pb-3">
-            Modify and resubmit the form to change the currently submitted information:
+            You can modify and resubmit the form to change the currently submitted information:
           </p>
           <p>
             <b>Research questions:</b> {researchQuestions}

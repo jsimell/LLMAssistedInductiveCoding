@@ -1,5 +1,5 @@
 import { useState, useContext, useEffect, useRef } from "react";
-import { CodeId, CSVdata, Passage, PassageId, WorkflowContext } from "../../../context/WorkflowContext";
+import { CodeId, Passage, PassageId, WorkflowContext } from "../../../context/WorkflowContext";
 import Codebook from "./Codebook";
 import CodeBlob from "./CodeBlob";
 import { usePassageSegmenter } from "./hooks/usePassageSegmenter";
@@ -17,11 +17,12 @@ const CodingCardContent = () => {
   }
   const {
     passages,
+    passagesPerColumn,
     aiSuggestionsEnabled,
     activeCodeId,
     setActiveCodeId,
     uploadedFile,
-    data,
+    csvHeaders,
   } = context;
 
   // Custom hooks
@@ -33,10 +34,18 @@ const CodingCardContent = () => {
   const { isFetchingHighlightSuggestion, declineHighlightSuggestion, inclusivelyFetchHighlightSuggestionAfter } = suggestionsManager;
   const { createNewPassage } = passageSegmenter;
 
-  // Local state for tracking the currently hovered passage (only for visual purposes)
+  // For CSV data: Determine column names based on csvHeaders state, defaulting to generic names if none are set
+  const columnNames = uploadedFile?.type === "text/csv"
+    ? csvHeaders && csvHeaders.length > 0
+      ? csvHeaders
+      : Array.from({ length: passagesPerColumn?.size ?? 0 }, (_, i) => `Column ${i + 1}`)
+    : []; // For text files, no columns
+
+  // Local states
   const [hoveredPassageId, setHoveredPassageId] = useState<PassageId | null>(null);
   const [showHighlightSuggestionFor, setShowHighlightSuggestionFor] = useState<PassageId | null>(null);
   const [pendingHighlightFetches, setPendingHighlightFetches] = useState<Array<PassageId>>([]);
+  const [displayedColumn, setDisplayedColumn] = useState<string>(columnNames[0] || "");
   
   // Refs
   const clickedSuggestionsToggleRef = useRef<boolean>(false); // Track if the most recent click was on the suggestions toggle
@@ -44,6 +53,30 @@ const CodingCardContent = () => {
   // Keep a stable ref to the latest fetch function to avoid effect re-trigger on identity changes
   const inclusiveFetchRef = useRef(inclusivelyFetchHighlightSuggestionAfter);
   
+  /**
+   * If the uploaded file is CSV file -> on change of displayedColumn, change the displayed passages accordingly 
+   */
+  useEffect(() => {
+    if (uploadedFile?.type === "text/csv" && passagesPerColumn) {
+      const columnIndex = columnNames.indexOf(displayedColumn);
+      const passagesToDisplay = passagesPerColumn.get(columnIndex);
+      if (passagesToDisplay) {
+        context.setPassages(passagesToDisplay);
+      }
+    }
+  }, [displayedColumn]);
+
+  /**
+   * Whenever passages state changes, and the file is CSV, ensure that the passages state
+   * is updated in passagesPerColumn as well.
+   */
+  useEffect(() => {
+    if (uploadedFile?.type === "text/csv" && passagesPerColumn) {
+      const columnIndex = columnNames.indexOf(displayedColumn);
+      passagesPerColumn.set(columnIndex, passages);
+    }
+  }, [passages]);
+
   /**
    * Update the highlight suggestion fetch function ref whenever it changes
    */  
@@ -280,7 +313,7 @@ const CodingCardContent = () => {
    * @returns - the jsx code of the passage
    */
   const renderPassage = (p: Passage) => {  
-    const dataIsCSVWithHeaders = uploadedFile?.type === "text/csv" && data && (data as CSVdata).hasHeaders;
+    const dataIsCSVWithHeaders = uploadedFile?.type === "text/csv" && csvHeaders !== null && csvHeaders.length > 0;
 
     return (
       <div 
@@ -305,6 +338,9 @@ const CodingCardContent = () => {
         className="inline"
       >
         <span>
+          {p.order === 0 && (
+            <span className="block my-6 w-full border-t border-outline"></span>
+          )}
           <span
             id={p.id}
             className={`
@@ -355,6 +391,11 @@ const CodingCardContent = () => {
   };
 
 
+  const handleDisplayedColumnChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setDisplayedColumn(e.target.value);
+  };
+
+
   return (
     <div className="flex w-full gap-7">
       <div
@@ -366,10 +407,26 @@ const CodingCardContent = () => {
         }}
         className="flex-1 rounded-lg border-1 border-outline py-6 px-8 text-onBackground text-base whitespace-pre-wrap"
       >
-        <p className="pb-6">File: <i>{uploadedFile?.name}</i></p>
-        {
-          passages.map((p) => renderPassage(p))
+        <p>File: <i>{uploadedFile?.name}</i></p>
+        {uploadedFile?.type === "text/csv" && 
+          <div className="flex items-center gap-2 pt-2 min-w-0">
+            <span className="whitespace-nowrap pr-2">Displayed column:</span>
+            <select
+              name="displayedColumn"
+              aria-label="Displayed CSV column"
+              className="bg-transparent border border-outline rounded-sm pl-1 min-w-[100px] max-w-[300px] w-full truncate"
+              value={displayedColumn}
+              onChange={handleDisplayedColumnChange}
+            >
+              {columnNames.map((colName, idx) => (
+                <option key={colName + idx} value={colName}>
+                  {colName}
+                </option>
+              ))}
+            </select>
+          </div>
         }
+        {passages.map((p) => renderPassage(p))}
       </div>
       <div className="flex flex-col items-center gap-4 h-fit w-fit min-w-50 max-w-sm">
         <Codebook codeManager={codeManager} />
