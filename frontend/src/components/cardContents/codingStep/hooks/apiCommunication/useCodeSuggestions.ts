@@ -12,7 +12,12 @@ export const useCodeSuggestions = () => {
       "useCodeSuggestions must be used within a WorkflowProvider"
     );
   }
-  const { researchQuestions, contextInfo, codebook, codes, apiKey, passages, contextWindowSize, codingGuidelines } = context;
+  const { researchQuestions, contextInfo, uploadedFile, codebook, codes, apiKey, passages, contextWindowSize, codingGuidelines } = context;
+
+  const dataIsCSV = uploadedFile?.type === "text/csv";
+
+  const precedingContextSize = contextWindowSize ? Math.floor(contextWindowSize / 0.7) : 350;
+  const trailingContextSize = contextWindowSize ? Math.floor(contextWindowSize / 0.3) : 150;
 
   /**
    * Gets code suggestions for a specific passage based on its existing codes and context.
@@ -26,7 +31,7 @@ export const useCodeSuggestions = () => {
 
     const systemPrompt = `
       ## ROLE:
-      You are a qualitative coding assistant. Given a text passage and its surrounding context,
+      You are a qualitative coding assistant. Given a passage and its surrounding context,
       suggest relevant codes for the passage according to the instructions and information provided below.
 
       ## RESEARCH CONTEXT
@@ -37,7 +42,7 @@ export const useCodeSuggestions = () => {
 
       ## USER'S CODING STYLE
       Codebook: [${Array.from(codebook).map((code) => `${code}`).join(", ")}]
-      Examples of user coded passages: [${constructFewShotExamplesString(passage, passages, codes)}]
+      Examples of user coded passages: [${constructFewShotExamplesString(passage, passages, codes, dataIsCSV)}]
 
       ## TARGET PASSAGE
       Passage to code: "${passage.text}"
@@ -55,8 +60,12 @@ export const useCodeSuggestions = () => {
       ## RESPONSE FORMAT
       Respond ONLY with a JSON array of code strings, e.g. ["code1", "code2", "code3"]. No explanations. Codes must never contain semicolons (;).
 
-      ## CONTEXT WINDOW (the target passage appears in this context between "<<<" and ">>>"):
-      "${getPassageWithSurroundingContext(passage, passages, contextWindowSize ?? 500, true)}"
+      ## CONTEXT WINDOW
+      ${dataIsCSV ? `- The data is from a CSV file, where rows end with the token "\\u001E".` : ""}
+      - the target passage appears in the context window between "<<<" and ">>>".
+      <START OF CONTEXT WINDOW>
+      "${getPassageWithSurroundingContext(passage, passages, precedingContextSize, trailingContextSize, true, dataIsCSV)}"
+      <END OF CONTEXT WINDOW>
     `;
 
   let response = await callOpenAIStateless(apiKey, systemPrompt, OPENAI_MODEL);
@@ -93,7 +102,8 @@ export const useCodeSuggestions = () => {
 
     const systemPrompt = `
       ## ROLE:
-      You are a qualitative coding assistant for code autocompletion. Given a passage and its context, suggest a broad set of relevant codes to maximize autocomplete matches.
+      You are a qualitative coding assistant for code autocompletion. Given a passage and its surrounding context, 
+      suggest a broad set of relevant codes to maximize autocomplete matches.
 
       ## RESEARCH CONTEXT
       Research questions: ${researchQuestions}
@@ -103,7 +113,7 @@ export const useCodeSuggestions = () => {
 
       ## USER'S CODING STYLE
       Codebook: [${Array.from(codebook).map((code) => `${code}`).join(", ")}]
-      Examples of user coded passages: [${constructFewShotExamplesString(passage, passages, codes)}]
+      Examples of user coded passages: [${constructFewShotExamplesString(passage, passages, codes, dataIsCSV)}]
 
       ## TARGET PASSAGE
       Passage to code: "${passage.text}"
@@ -120,8 +130,12 @@ export const useCodeSuggestions = () => {
       ## RESPONSE FORMAT
       Respond ONLY with a JSON array of code strings, e.g. ["code1", "code2", "code3"]. No explanations. Codes must never contain semicolons (;).
 
-      ## CONTEXT WINDOW (the target passage appears in this context between "<<<" and ">>>"):
-      "${getPassageWithSurroundingContext(passage, passages, contextWindowSize ?? 500, true)}"
+      ## CONTEXT WINDOW
+      ${dataIsCSV ? `- The data is from a CSV file, where rows end with the token "\u001E".` : ""}
+      - the target passage appears in the context window between "<<<" and ">>>".
+      <START OF CONTEXT WINDOW>
+      "${getPassageWithSurroundingContext(passage, passages, precedingContextSize, trailingContextSize, true, dataIsCSV)}"
+      <END OF CONTEXT WINDOW>
     `;
 
     let response = await callOpenAIStateless(apiKey, systemPrompt, OPENAI_MODEL);

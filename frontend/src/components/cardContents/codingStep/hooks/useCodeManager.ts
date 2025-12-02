@@ -1,5 +1,10 @@
 import { useContext } from "react";
-import { CodeId, Passage, PassageId, WorkflowContext } from "../../../../context/WorkflowContext";
+import {
+  CodeId,
+  Passage,
+  PassageId,
+  WorkflowContext,
+} from "../../../../context/WorkflowContext";
 
 interface UseCodeManagerProps {
   setActiveCodeId: React.Dispatch<React.SetStateAction<CodeId | null>>;
@@ -13,20 +18,23 @@ interface UseCodeManagerProps {
  * @param setActiveCodeId - Function to update the active code ID.
  * @returns An object containing functions to update, delete codes, and handle keydown events.
  */
-export const useCodeManager = ({
-  setActiveCodeId,
-}: UseCodeManagerProps) => {
+export const useCodeManager = ({ setActiveCodeId }: UseCodeManagerProps) => {
   const context = useContext(WorkflowContext);
   if (!context) {
     throw new Error("useCodeManager must be used within a WorkflowProvider");
   }
 
   // Context values
-  const { codes, setCodes, setPassages, nextCodeIdNumber, setNextCodeIdNumber } = context;
-
+  const {
+    codes,
+    setCodes,
+    setPassages,
+    nextCodeIdNumber,
+    setNextCodeIdNumber,
+  } = context;
 
   /** Updates the value of a specific code.
-   * 
+   *
    * @param id - the id of the code to be updated
    * @param newValue - the new value of the code
    * @return The PassageId of the passage containing the updated code, or null if no update was made
@@ -38,7 +46,7 @@ export const useCodeManager = ({
     const getNextCodeId = () => {
       const id = `code-${newCodeIdNumber++}` as CodeId;
       return id;
-    }
+    };
 
     // Edge case: if no change, do nothing
     const existingCode = codes.find((c) => c.id === id);
@@ -67,7 +75,7 @@ export const useCodeManager = ({
       const newCodes = prev.map((c) =>
         c.id === id ? { ...c, code: codeList[0] } : c
       );
-      
+
       if (codeList.length > 1) {
         const additionalCodes = codeList.slice(1).map((code, index) => ({
           id: newCodeIds[index], // Use pre-allocated IDs
@@ -112,12 +120,16 @@ export const useCodeManager = ({
 
     setPassages((prev) => {
       // Find affected passage
-      const affectedPassage = prev.find((p) => p.isHighlighted && p.codeIds.includes(id));
+      const affectedPassage = prev.find(
+        (p) => p.isHighlighted && p.codeIds.includes(id)
+      );
       if (!affectedPassage) return prev;
       affectedPassageId = affectedPassage.id;
 
       // Remove code from passage's codeIds
-      const filteredCodeIds = affectedPassage.codeIds.filter((cid) => cid !== id);
+      const filteredCodeIds = affectedPassage.codeIds.filter(
+        (cid) => cid !== id
+      );
 
       let updatedPassage: Passage;
 
@@ -151,9 +163,15 @@ export const useCodeManager = ({
       const nextPassage = prev.find(
         (p) => p.order === updatedPassage.order + 1
       );
-      const mergePrev = prevPassage && prevPassage.codeIds.length === 0;
-      const mergeNext = nextPassage && nextPassage.codeIds.length === 0;
 
+      const mergePrev =
+        prevPassage &&
+        prevPassage.codeIds.length === 0 &&
+        !prevPassage.text.trim().endsWith("\u001E"); // For CSV row separation, defaults to true if data is from a text file, because there will be no end of row markers
+      const mergeNext =
+        nextPassage &&
+        nextPassage.codeIds.length === 0 &&
+        !affectedPassage.text.trim().endsWith("\u001E"); // For CSV row separation, defaults to true if data is from a text file, because there will be no end of row markers
       // Determine merged text and which passages to remove from the passages state
       let mergedText = updatedPassage.text;
       let passagesToRemove = [affectedPassageId];
@@ -197,7 +215,9 @@ export const useCodeManager = ({
 
   const editAllInstancesOfCode = (oldValue: string, newValue: string) => {
     setCodes((prev) => {
-      const idsToEdit = prev.filter((c) => c.code === oldValue).map((c) => c.id);
+      const idsToEdit = prev
+        .filter((c) => c.code === oldValue)
+        .map((c) => c.id);
       return prev.map((code) =>
         idsToEdit.includes(code.id) ? { ...code, code: newValue } : code
       );

@@ -25,7 +25,6 @@ export const usePassageSegmenter = () => {
     setNextCodeIdNumber,
     nextPassageIdNumber,
     setNextPassageIdNumber,
-    setActiveCodeId,
   } = context;
 
   /**
@@ -66,12 +65,13 @@ export const usePassageSegmenter = () => {
     }
 
     // 2. Validate selection
-    // If selection spans multiple nodes OR sourcePassage already has codes (i.e. has been highlighted before):
+    // If selection spans multiple nodes OR sourcePassage already has codes (i.e. has been highlighted before)
     //     alert user about overlapping passages and return early
     if (startNode !== endNode || sourcePassage.codeIds.length > 0) {
       alert(
         "Overlapping passages not allowed! Please select a new passage or click an existing code to edit it."
       );
+      window.getSelection()?.removeAllRanges();
       return null;
     }
 

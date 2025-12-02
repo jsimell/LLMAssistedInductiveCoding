@@ -181,18 +181,19 @@ export const useSuggestionsManager = () => {
 
   /**
    * Fetches a new highlight suggestion for the given passage, effectively declining the previous one.
+   * If the LLM returns with an empty suggestion, this will trigger a highlight fetch for the next unhighlighted passage.
    * @param id The ID of the passage for which to decline the highlight suggestion.
    */
   const declineHighlightSuggestion = useCallback(
-    async (id: PassageId) => {
+    async (id: PassageId): Promise<PassageId | null> => {
       const passage = passages.find((p) => p.id === id);
-      if (!passage || passage.isHighlighted) return;
+      if (!passage || passage.isHighlighted) return null;
 
       const suggestion = passage.nextHighlightSuggestion;
-      if (!suggestion) return; // No suggestion to decline
+      if (!suggestion) return null; // No suggestion to decline
 
       const suggestionStartIdx = passage.text.indexOf(suggestion.passage);
-      if (suggestionStartIdx === -1) return;
+      if (suggestionStartIdx === -1) return null;
 
       // Calculate new search start index to be after the declined suggestion
       const searchStartIdx = suggestionStartIdx + suggestion.passage.length;
@@ -200,7 +201,18 @@ export const useSuggestionsManager = () => {
       const callTimestamp = Date.now(); // Unique timestamp for this call
       latestCallTimestamps.current.set(id, callTimestamp); // Mark as latest
 
-      await refreshHighlightSuggestion(id, searchStartIdx, callTimestamp);
+      const newSuggestion = await refreshHighlightSuggestion(id, searchStartIdx, callTimestamp);
+
+      // If the LLM returned an empty suggestion, trigger a fetch for the next unhighlighted passage
+      if (
+        !newSuggestion || newSuggestion.passage.trim().length === 0
+      ) {
+        const nextPassageId = passages.find(p => p.order === passage.order + 1)?.id;
+        if (nextPassageId) {
+          return await inclusivelyFetchHighlightSuggestionAfter(nextPassageId);
+        }
+      }
+      return id;
     },
     [passages]
   );

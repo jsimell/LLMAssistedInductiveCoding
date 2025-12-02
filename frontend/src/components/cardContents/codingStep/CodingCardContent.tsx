@@ -1,10 +1,8 @@
 import { useState, useContext, useEffect, useRef } from "react";
-import { CodeId, Passage, PassageId, HighlightedPassage, UnhighlightedPassage, WorkflowContext } from "../../../context/WorkflowContext";
-import ToggleSwitch from "../../ToggleSwitch";
+import { CodeId, CSVdata, Passage, PassageId, WorkflowContext } from "../../../context/WorkflowContext";
 import Codebook from "./Codebook";
 import CodeBlob from "./CodeBlob";
 import { usePassageSegmenter } from "./hooks/usePassageSegmenter";
-import { QuestionMarkCircleIcon } from "@heroicons/react/24/solid";
 import SuggestionBlob from "./SuggestionBlob";
 import { useSuggestionsManager } from "./hooks/useSuggestionsManager";
 import InfoBox from "../../InfoBox";
@@ -19,26 +17,12 @@ const CodingCardContent = () => {
   }
   const {
     passages,
-    setProceedAvailable,
     aiSuggestionsEnabled,
-    setAiSuggestionsEnabled,
-    contextWindowSize,
-    setContextWindowSize,
     activeCodeId,
     setActiveCodeId,
-    codingGuidelines,
-    setCodingGuidelines,
+    uploadedFile,
+    data,
   } = context;
-
-
-  // Local state for tracking the currently hovered passage (only for visual purposes)
-  const [hoveredPassageId, setHoveredPassageId] = useState<PassageId | null>(null);
-  const [showHighlightSuggestionFor, setShowHighlightSuggestionFor] = useState<PassageId | null>(null);
-  const [pendingHighlightFetches, setPendingHighlightFetches] = useState<Array<PassageId>>([]);
-  
-  // Refs
-  const clickedSuggestionsToggleRef = useRef<boolean>(false); // Track if the most recent click was on the suggestions toggle
-
 
   // Custom hooks
   const suggestionsManager = useSuggestionsManager();
@@ -49,8 +33,27 @@ const CodingCardContent = () => {
   const { isFetchingHighlightSuggestion, declineHighlightSuggestion, inclusivelyFetchHighlightSuggestionAfter } = suggestionsManager;
   const { createNewPassage } = passageSegmenter;
 
+  // Local state for tracking the currently hovered passage (only for visual purposes)
+  const [hoveredPassageId, setHoveredPassageId] = useState<PassageId | null>(null);
+  const [showHighlightSuggestionFor, setShowHighlightSuggestionFor] = useState<PassageId | null>(null);
+  const [pendingHighlightFetches, setPendingHighlightFetches] = useState<Array<PassageId>>([]);
+  
+  // Refs
+  const clickedSuggestionsToggleRef = useRef<boolean>(false); // Track if the most recent click was on the suggestions toggle
+  const isProcessingPendingRef = useRef<boolean>(false); // Used for preventing overlapping processing of the same queue head
+  // Keep a stable ref to the latest fetch function to avoid effect re-trigger on identity changes
+  const inclusiveFetchRef = useRef(inclusivelyFetchHighlightSuggestionAfter);
+  
+  /**
+   * Update the highlight suggestion fetch function ref whenever it changes
+   */  
+  useEffect(() => {
+    inclusiveFetchRef.current = inclusivelyFetchHighlightSuggestionAfter;
+  }, [inclusivelyFetchHighlightSuggestionAfter]);
 
-  // Whenever pendingHighlightFetch changes, trigger fetching highlight suggestion for that passage, if it is the latest request
+  /**
+   * Whenever pendingHighlightFetch changes, trigger fetching highlight suggestion for that passage, if it is the latest request
+   */
   useEffect(() => {
     if (pendingHighlightFetches.length === 0) return;
 
@@ -61,26 +64,36 @@ const CodingCardContent = () => {
       return;
     }
 
+    // Ensure we don't start another fetch while one is in flight for the same queue head
+    if (isProcessingPendingRef.current) return;
+    isProcessingPendingRef.current = true;
+
     const idToProcess = pendingHighlightFetches[0];
     if (!idToProcess || !passages.find(p => p.id === idToProcess)) {
       // Invalid passage id, or passage no longer exists -> skip
       setPendingHighlightFetches(prev => prev.slice(1));
+      isProcessingPendingRef.current = false;
       return;
     }
 
-    inclusivelyFetchHighlightSuggestionAfter(idToProcess).then((idWithSuggestion) => {
+    // Use the stable ref to avoid duplicate calls when the function identity changes after passages update
+    inclusiveFetchRef.current(idToProcess).then((idWithSuggestion) => {
       // After processing, remove this id from the pending list
       setPendingHighlightFetches(prev => prev.slice(1));
       // If a valid suggestion was received, set it to show
       if (idWithSuggestion) {
         setShowHighlightSuggestionFor(idWithSuggestion);
       }
+    }).finally(() => {
+      isProcessingPendingRef.current = false;
     });
 
-  }, [pendingHighlightFetches, inclusivelyFetchHighlightSuggestionAfter]);
+  }, [pendingHighlightFetches]);
 
 
-  // Handle Escape key to decline and tab key to accept suggestion if no code is being edited
+  /* 
+   * Handle Escape key to decline and tab key to accept suggestion if no code is being edited
+   */
   useEffect(() => {
     const handleEscapeOrTab = async (e: KeyboardEvent) => {
       if (e.key !== "Escape" && e.key !== "Tab") return;
@@ -96,8 +109,8 @@ const CodingCardContent = () => {
         }
         if (e.key === "Escape") {
           setShowHighlightSuggestionFor(null);
-          await declineHighlightSuggestion(currentSuggestionPassageId);
-          setShowHighlightSuggestionFor(currentSuggestionPassageId);
+          const idWithSuggestion = await declineHighlightSuggestion(currentSuggestionPassageId);
+          if (idWithSuggestion) setShowHighlightSuggestionFor(idWithSuggestion);
         }
       }
     };
@@ -107,7 +120,9 @@ const CodingCardContent = () => {
   }, [showHighlightSuggestionFor, activeCodeId, declineHighlightSuggestion]);
 
 
-  // Handles resetting clickedSuggestionsToggleRef on clicks outside the toggle
+  /* 
+   * Handles resetting clickedSuggestionsToggleRef on clicks outside the toggle
+   */
   useEffect(() => {
     const handleDocumentClick = (e: MouseEvent) => {
       // Only reset if the click is not on the toggle switch
@@ -129,14 +144,12 @@ const CodingCardContent = () => {
     parentPassageId: PassageId
   ) => {
     const parentPassage = passages.find(p => p.id === parentPassageId);
-    if (!parentPassage) return;
+    if (!parentPassage || !parentPassage.nextHighlightSuggestion) return;
     const suggestionText = parentPassage.nextHighlightSuggestion?.passage;
-    if (!suggestionText) return;
     const suggestionCodes = parentPassage.nextHighlightSuggestion?.codes;
-    if (!suggestionCodes || suggestionCodes.length === 0) return;
+    if (!suggestionText || !suggestionCodes || suggestionCodes.length === 0) return;
 
-    const startIdx = parentPassage.text.indexOf(suggestionText);
-    if (startIdx === -1) return;
+    const startIdx = parentPassage.nextHighlightSuggestion.startIndex;
     const endIdx = startIdx + suggestionText.length;
 
     // Hide suggestion so the passage DOM becomes a single text node again
@@ -223,7 +236,7 @@ const CodingCardContent = () => {
       !activeCodeId &&
       showHighlightSuggestionFor === p.id;
 
-    if (!showSuggestion || !p.nextHighlightSuggestion) return p.text;
+    if (!showSuggestion || !p.nextHighlightSuggestion || p.nextHighlightSuggestion.passage.trim().length === 0) return p.text;
 
     const suggestionText = p.nextHighlightSuggestion.passage;
     const startIdx = p.nextHighlightSuggestion.startIndex;
@@ -266,12 +279,16 @@ const CodingCardContent = () => {
    * @param p - the passage to be rendered
    * @returns - the jsx code of the passage
    */
-  const renderPassage = (p: Passage) => {
+  const renderPassage = (p: Passage) => {  
+    const dataIsCSVWithHeaders = uploadedFile?.type === "text/csv" && data && (data as CSVdata).hasHeaders;
+
     return (
       <div 
         key={p.id}
         onClick={(e) => {
           e.stopPropagation(); // Prevent triggering parent onMouseDown
+          // If there is an ongoing highlight suggestion fetch, do nothing
+          if (isProcessingPendingRef.current) return;
           if (!p.isHighlighted) {
             setActiveCodeId(null);
             setPendingHighlightFetches((prev) => {
@@ -301,6 +318,11 @@ const CodingCardContent = () => {
                   ? "bg-tertiaryContainerHover rounded-sm underline decoration-onBackground"
                   : ""
               }
+              ${
+                (dataIsCSVWithHeaders && p.order === 0) // If this is the first passage and data is from CSV with headers, make it bold
+                ? "font-bold"
+                : ""
+              }
             `}
           >
             {renderPassageText(p)}
@@ -324,6 +346,9 @@ const CodingCardContent = () => {
                 />  
               ))}
           </span>
+          {p.text.trim().endsWith("\u001E") && (
+            <span className="block my-6 w-full border-t border-outline"></span>
+          )}
         </span>
       </div>
     );
@@ -339,9 +364,12 @@ const CodingCardContent = () => {
             handleUserHighlight(selection);
           }
         }}
-        className="flex-1 rounded-xl border-1 border-outline p-8 text-onBackground text-base whitespace-pre-wrap"
+        className="flex-1 rounded-lg border-1 border-outline py-6 px-8 text-onBackground text-base whitespace-pre-wrap"
       >
-        {passages.map((p) => renderPassage(p))}
+        <p className="pb-6">File: <i>{uploadedFile?.name}</i></p>
+        {
+          passages.map((p) => renderPassage(p))
+        }
       </div>
       <div className="flex flex-col items-center gap-4 h-fit w-fit min-w-50 max-w-sm">
         <Codebook codeManager={codeManager} />

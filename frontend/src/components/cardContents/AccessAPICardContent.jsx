@@ -48,8 +48,8 @@ const AccessAPICardContent = () => {
 
   return (
     <>
-      <div className="flex items-center justify-center w-full gap-4 pb-6">
-        <form ref={formRef} onSubmit={handleSubmit} className="flex flex-1 max-w-[400px] gap-1.5">
+      <div className="flex items-center justify-center w-full pb-6">
+        <form ref={formRef} onSubmit={handleSubmit} className="flex flex-1 max-w-[400px] gap-1.5 items-center justify-center">
           <label htmlFor="apiKey" className="text-nowrap">OpenAI API key:</label>
           <input 
             id="apiKey" 
@@ -57,10 +57,10 @@ const AccessAPICardContent = () => {
             value={currentInput}
             onChange={(e) => setCurrentInput(e.target.value)}
             spellCheck="false" 
-            className="border-1 h-fit flex-1" 
+            className="border-1 h-fit flex-1 border-outline rounded-sm p-1 mr-4" 
           />
-        </form>
         <Button label="Submit" onClick={handleSubmit} variant={isValidating ? "disabled" : "tertiary"}></Button>
+        </form>
       </div>
       <div className="flex flex-col gap-3">
         {apiKey && (

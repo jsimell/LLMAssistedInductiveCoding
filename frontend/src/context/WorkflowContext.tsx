@@ -43,7 +43,7 @@ export interface HighlightSuggestion {
   codes: string[];
 }
 
-export interface CSVdata { data: string[] };
+export interface CSVdata { data: string[], hasHeaders: boolean };
 export interface PlainTextData { data: string }
 
 export type CodingData = CSVdata | PlainTextData | null;

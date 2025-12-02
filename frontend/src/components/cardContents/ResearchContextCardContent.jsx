@@ -12,7 +12,7 @@ const ResearchContextCardContent = () => {
     setProceedAvailable,
   } = useContext(WorkflowContext);
   const [currentRQs, setCurrentRQs] = useState("How do the users perceive the user experience of the system? How does it compare to their previous experiences with qualitative coding?");
-  const [currentContextInfo, setCurrentContextInfo] = useState("The data is from a group user interview with three interviewees and one interviewer, conducted after testing of an AI assisted inductive coding system.");
+  const [currentContextInfo, setCurrentContextInfo] = useState("The data is from a user survey conducted after testing of an AI assisted inductive coding system.");
   const formRef = useRef(null);
 
   // Make sure the next step button is available if the user returns to this screen after submitting the info previously
@@ -52,12 +52,20 @@ const ResearchContextCardContent = () => {
           can include multiple questions in the same field.
         </li>
         <li>
-          Optionally, you can also provide additional <b>contextual information</b> about your research (e.g. data origin, type of data, interviewee demographics etc.) to help the AI give more precise suggestions.
+          Optionally, you can also provide additional <b>contextual information</b> about your research (e.g. data origin, type of data, interviewee demographics etc.) to improve the LLMs understanding of your research context.
+        </li>
+        <li>
+          The submitted information will be included in the coding suggestion prompts.
         </li>
       </ul>
       <form
         ref={formRef}
-        onSubmit={informationHasChanged() ? handleSubmit : undefined}
+        onSubmit={(e) => {
+          e.preventDefault();               // prevent full page reload
+          if (informationHasChanged() && currentRQs.trim()) {
+            handleSubmit();
+          }
+        }}
         className="flex flex-col gap-2 pb-4 w-full"
       >
         <div>
@@ -69,7 +77,7 @@ const ResearchContextCardContent = () => {
             value={currentRQs}
             onChange={(e) => setCurrentRQs(e.target.value)}
             type="text"
-            className="border-1 w-full h-fit"
+            className="border-1 border-outline rounded-sm p-1 w-full h-fit"
             required
           />
         </div>
@@ -80,16 +88,18 @@ const ResearchContextCardContent = () => {
             value={currentContextInfo}
             onChange={(e) => setCurrentContextInfo(e.target.value)}
             type="text"
-            className="border-1"
+            className="border-1 border-outline rounded-sm p-1"
           />
         </div>
+      <div className="flex justify-center">
+        <Button
+          label="Submit"
+          onClick={informationHasChanged() ? handleSubmit : undefined}
+          variant={informationHasChanged() && currentRQs ? "tertiary" : "disabled"}
+          title={informationHasChanged() && currentRQs ? "Submit the current input" : ((!currentRQs) ? "Please enter at least one research question to enable submission" : "Please modify the information to enable submission")}
+        />
+      </div>
       </form>
-      <Button
-        label="Submit"
-        onClick={informationHasChanged() ? handleSubmit : undefined}
-        variant={informationHasChanged() && currentRQs ? "tertiary" : "disabled"}
-        title={informationHasChanged() && currentRQs ? "Submit the current input" : ((!currentRQs) ? "Please enter at least one research question to enable submission" : "Please modify the information to enable submission")}
-      ></Button>
       {researchQuestions && (
         <div className="pt-5 pb-5 w-full">
           <p className="pb-3">

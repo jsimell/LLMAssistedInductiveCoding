@@ -61,7 +61,7 @@ const CodingSettingsCard = ({ clickedSuggestionsToggleRef }: CodingSettingsCardP
         <div>
           <QuestionMarkCircleIcon
             className="size-4.5 text-tertiary"
-            title="The minimum characters that the prompt will include as surrounding context when generating code suggestions for a highlighted passage. After the minimum characters are reached, the window is cut intelligently within 200 characters (e.g., at a line break). A value of 0 means only the highlighted passage is included in the prompt. &#10;&#10;Larger windows may improve suggestion relevance but increase response time and cost. Recommended values are between 200 and 1000."
+            title="The minimum characters that the prompt will include as surrounding context when generating code suggestions for a highlighted passage. 70% of the window goes before the passage, 30% after. &#10;&#10;After the minimum characters are reached, the window is cut intelligently within 100 characters (e.g., at a line break, or sentence end). A value of 0 means only the highlighted passage is included in the prompt. &#10;&#10;Larger windows may improve suggestion relevance but increase response time and cost."
           />
         </div>
       </div>

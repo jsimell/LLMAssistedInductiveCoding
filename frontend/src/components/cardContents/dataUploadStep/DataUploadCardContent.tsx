@@ -3,7 +3,7 @@ import {
   FolderArrowDownIcon,
   ArrowsRightLeftIcon,
 } from "@heroicons/react/24/outline";
-import { CodingData, PassageId, WorkflowContext } from "../../../context/WorkflowContext";
+import { CodingData, Passage, PassageId, WorkflowContext } from "../../../context/WorkflowContext";
 import {
   ExclamationTriangleIcon,
   CheckCircleIcon,
@@ -11,16 +11,18 @@ import {
 import Button from "../../Button";
 import InfoBox from "../../InfoBox";
 import { parse } from "papaparse";
-import SelectCSVColumnInteraction from "./SelectCSVColumnInteraction";
+import CSVsettingsCard from "./CSVsettingsCard";
 
 const DataUploadCardContent = () => {
   const [uploadStatus, setUploadStatus] = useState("idle"); // idle, loading, error, success
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showCsvParsingInteraction, setShowCsvParsingInteraction] =
     useState(false);
-  const [selectedCsvColumn, setSelectedCsvColumn] = useState<string | null>(
+  const [selectedCsvColIndex, setSelectedCsvColIndex] = useState<number | null>(
     null
   );
+  const [selectedCsvColName, setSelectedCsvColName] = useState<string | null>(null);
+  const [csvHasHeaders, setCsvHasHeaders] = useState<boolean>(false);
 
   const context = useContext(WorkflowContext);
   if (!context) {
@@ -36,19 +38,11 @@ const DataUploadCardContent = () => {
     passages.length > 0 && currentStep === 1 ? setProceedAvailable(true) : null;
   }, [currentStep]);
 
-  // Proceed should never be available if CSV parsing interaction is shown
-  useEffect(() => {
-    if (showCsvParsingInteraction) {
-      setProceedAvailable(false);
-    }
-  }, [showCsvParsingInteraction]);
-
   // Update state based on upload status
   useEffect(() => {
     if (uploadStatus === "success") {
       setErrorMessage(null);
       setProceedAvailable(true);
-      setShowCsvParsingInteraction(false);
       return;
     }
     if (uploadStatus === "loading") {
@@ -65,8 +59,20 @@ const DataUploadCardContent = () => {
     }
   }, [uploadStatus]);
 
+  // On change of selected CSV column or csvHasHeaders, update the passages state
+  useEffect(() => {
+    if (selectedCsvColIndex === null || !parsedCSVdataRef.current) return;
+    const colValues = parsedCSVdataRef.current.map((row) => {
+      // If the row is missing the selected column, skip it
+      if (selectedCsvColIndex >= row.length) return "";
+      return row[selectedCsvColIndex];
+    });
+    const filtered = colValues.filter((val) => val !== ""); // Remove empty strings
+    setPassagesFromCSV(filtered);
+  }, [selectedCsvColIndex, csvHasHeaders]);
+
   // On successful file upload
-  const setInitialPassagesFromCSV = (rawCSV: string) => {
+  const parseCSV = (rawCSV: string) => {
     if (rawCSV?.trim().length === 0) {
       setUploadStatus("error");
       setErrorMessage("Uploaded file is empty");
@@ -76,18 +82,67 @@ const DataUploadCardContent = () => {
     parse(rawCSV, {
       complete: (results) => {
         const parsedRawData = results.data as string[][];
+
+        // Error: Empty file
+        if (rawCSV.trim().length === 0) {
+          setUploadStatus("error");
+          setErrorMessage("CSV parsing error: Uploaded file is empty.");
+          return;
+        }
+
+        // Error: No data parsed
         if (parsedRawData.length === 0) {
           setUploadStatus("error");
           setErrorMessage("CSV parsing error: Parsing returned no data.");
           return;
         }
+
+        // Error: Undetectable delimiter
+        const singleColumn = parsedRawData.every(r => r.length <= 1);
+        const hasUndetectableDelimiter = results.errors.some(e => e.code === "UndetectableDelimiter");
+        if (hasUndetectableDelimiter && !singleColumn) {
+          setUploadStatus("error");
+          setErrorMessage("CSV parsing error: Could not detect delimiter. (Recommended delimiters: commas or semicolons).");
+          return;
+        }
+
+        // Error: Missing quotes
+        const hasMissingQuotes = results.errors.some(e => e.code === "MissingQuotes");
+        if (hasMissingQuotes) {
+          setUploadStatus("error");
+          setErrorMessage("CSV parsing error: Missing quotes detected.");
+          return;
+        }
+
+        // Success (possible recoverable parsing warnings are ignored)
         parsedCSVdataRef.current = parsedRawData;
         setShowCsvParsingInteraction(true);
+        if (results.errors.length === 0) setUploadStatus("success");
+        setProceedAvailable(true);
       },
     });
   };
 
-  const setInitialPassageFromTextContent = (textContent: string) => {
+  const setPassagesFromCSV = (colValues: string[]) => {
+    const filteredColValues = colValues.filter((val) => val !== ""); // Remove empty strings
+    const newPassages = filteredColValues.map((text, index) => ({
+      id: `passage-${index}` as PassageId,
+      order: index,
+      text: text.trim() + "\u001E", // Append record separator to each CSV row to help LLMs distinguish rows
+      isHighlighted: false,
+      codeIds: [],
+      codeSuggestions: [],
+      autocompleteSuggestions: [],
+      nextHighlightSuggestion: null,
+      originalParentOrder: index,
+    } as Passage));
+    setPassages(newPassages);
+    setNextPassageIdNumber(newPassages.length);
+    setData({ data: filteredColValues, hasHeaders: csvHasHeaders } as CodingData);
+  }
+
+
+  const setPassagesFromTextContent = (textContent: string) => {
     if (textContent?.trim().length === 0) {
       setUploadStatus("error");
       setErrorMessage("Uploaded file is empty");
@@ -135,11 +190,14 @@ const DataUploadCardContent = () => {
         const content = reader.result;
         setUploadedFile(selectedFile);
         if (selectedFile.type === "text/plain") {
-          setInitialPassageFromTextContent(content as string);
+          setUploadStatus("success");
+          setPassagesFromTextContent(content as string);
+          return;
         }
         if (selectedFile.type === "text/csv") {
           setUploadStatus("idle"); // Reset status to idle before showing CSV parsing interaction
-          setInitialPassagesFromCSV(content as string);
+          parseCSV(content as string);
+          return;
         }
       };
 
@@ -157,53 +215,12 @@ const DataUploadCardContent = () => {
     }
   };
 
-  /** Handle CSV parsing interaction finish */
-  const handleColumnSelectionFinish = (
-    parsedData?: string[],
-    errorMessage?: string
-  ) => {
-    if (!parsedData && !errorMessage) {
-      console.error(
-        "CSV parsing interaction returned nothing: either parsedData or errorMessage must be provided"
-      );
-    }
-    if (errorMessage) {
-      setUploadStatus("error");
-      setErrorMessage(errorMessage);
-      return;
-    } 
-    if (parsedData) {
-      setData({ data: parsedData });
-      setPassages(() => {
-        return parsedData.map((csvEntry, index) => ({
-          id: 'passage-' + index as PassageId,
-          order: index,
-          text: csvEntry,
-          isHighlighted: false,
-          codeIds: [],
-          codeSuggestions: [],
-          autocompleteSuggestions: [],
-          nextHighlightSuggestion: null,
-        }));
-      });
-      setNextPassageIdNumber(parsedData.length); // Must not forget to update the passage ID counter
-      setUploadStatus("success");
-    }
-  };
-
-  const cancelCsvParsing = () => {
-    setShowCsvParsingInteraction(false);
-    setUploadedFile(null);
-    setUploadStatus("idle");
-  };
 
   return (
-    <div className="flex flex-col items-center">
-      {!showCsvParsingInteraction && 
-        <p className="pb-6">
-          Upload your data either as a text (.txt) file or in CSV format.
-        </p>
-      }
+    <div className="flex flex-col gap-6 items-center">
+      <p className="text-center">
+        Upload your data either as a text (.txt) file or in CSV format.
+      </p>
       <input
         ref={fileInputRef}
         id="file-input"
@@ -213,7 +230,7 @@ const DataUploadCardContent = () => {
         className="hidden"
       />
       {uploadStatus !== "idle" && (
-        <div className="pb-4">
+        <div className="">
           <InfoBox
             msg={
               uploadStatus === "error"
@@ -243,44 +260,37 @@ const DataUploadCardContent = () => {
           />
         </div>
       )}
-      <div className="flex flex-col pb-6 w-[80%]">
-        {uploadedFile && !showCsvParsingInteraction && !errorMessage && (
-          <div className="flex gap-6 justify-between">
-            <p>Uploaded file:</p>
-            <i>{uploadedFile.name}</i>
-          </div>
-        )}
-        {uploadedFile?.type === "text/csv" && !showCsvParsingInteraction && !errorMessage && (
-          <div className="flex gap-6 pt-1 justify-between">
-            <p>Selected CSV column:</p>
-            <i>{selectedCsvColumn}</i>
-          </div>
-        )}
-      </div>
-      {!showCsvParsingInteraction && (
-        <Button
-          label={uploadStatus === "success" ? "Change file" : "Browse files"}
-          onClick={handleBrowseButtonClick}
-          icon={
-            uploadStatus === "success"
-              ? ArrowsRightLeftIcon
-              : FolderArrowDownIcon
-          }
-          iconPosition="start"
-          variant="tertiary"
-        />
+      {uploadedFile && !errorMessage && !showCsvParsingInteraction && (
+        <div className="flex gap-6 justify-between -mt-1">
+          <p>Uploaded file:</p>
+          <i>{uploadedFile.name}</i>
+        </div>
       )}
       {showCsvParsingInteraction && uploadedFile && parsedCSVdataRef.current && (
-        <SelectCSVColumnInteraction
-          onFinish={handleColumnSelectionFinish}
-          onCancel={cancelCsvParsing}
-          file={uploadedFile}
-          parsedCSV={parsedCSVdataRef.current}
-          selectedCsvColumn={selectedCsvColumn}
-          setSelectedCsvColumn={setSelectedCsvColumn}
-          setShowCsvParsingInteraction={setShowCsvParsingInteraction}
-        />
+        <div className="">
+          <CSVsettingsCard
+            file={uploadedFile}
+            parsedCSV={parsedCSVdataRef.current}
+            csvHasHeaders={csvHasHeaders}
+            setCsvHasHeaders={setCsvHasHeaders}
+            selectedCsvColIndex={selectedCsvColIndex}
+            setSelectedCsvColIndex={setSelectedCsvColIndex}
+            selectedCsvColName={selectedCsvColName}
+            setSelectedCsvColName={setSelectedCsvColName}
+          />
+        </div>
       )}
+      <Button
+        label={uploadedFile ? "Change file" : "Browse files"}
+        onClick={handleBrowseButtonClick}
+        icon={
+          uploadedFile
+            ? ArrowsRightLeftIcon
+            : FolderArrowDownIcon
+        }
+        iconPosition="start"
+        variant="tertiary"
+      />
     </div>
   );
 };
