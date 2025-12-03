@@ -34,8 +34,9 @@ export const useSuggestionsManager = () => {
 
   // MAIN FUNCTIONS
 
-  /**
-   * Requests the next highlight suggestion for the given passage.
+  /** Requests the next highlight suggestion for the given passage. For text files, only searches within the passage.
+   * For CSV files, the LLM may return a suggestion from following passages as well.
+   * 
    * @param id The ID of the passage for which to request a highlight suggestion.
    * @param searchIndex The character index in the passage text from which to start searching for the next highlight suggestion.
    */
@@ -43,7 +44,7 @@ export const useSuggestionsManager = () => {
     id: PassageId,
     searchStartIndex: number,
     callTimestamp: number
-  ): Promise<HighlightSuggestion | null> => {
+  )=> {
     if (!aiSuggestionsEnabled) return null;
     const passage = passages.find((p) => p.id === id);
     if (!passage || passage.isHighlighted) return null;
@@ -52,18 +53,27 @@ export const useSuggestionsManager = () => {
     setIsFetchingHighlightSuggestion(true);
 
     let suggestion: HighlightSuggestion | null = null;
+    let forPassageId: PassageId | null = null;
     try {
-      // Prioritize provided startIndex, otherwise use stored one, or default to 0
-      suggestion =
-        searchStartIndex >= passage.text.length
-          ? null
-          : await getNextHighlightSuggestion(passage, searchStartIndex);
+      if (searchStartIndex >= passage.text.length) {
+        // No more text to search in, set suggestion to null
+        suggestion = null;
+      } else {
+        const result = await getNextHighlightSuggestion(passage, searchStartIndex);
+
+        if (result) {
+          suggestion = result.highlightSuggestion;
+          forPassageId = result.forPassageId;
+        } else {
+          suggestion = null;
+        }
+      }
 
       // Only update if this is still the latest call
       if (latestCallTimestamps.current.get(id) === callTimestamp) {
         setPassages((prev) =>
           prev.map((p) =>
-            p.id === id && !p.isHighlighted
+            p.id === forPassageId && !p.isHighlighted
               ? { ...p, nextHighlightSuggestion: suggestion }
               : p
           )
@@ -76,7 +86,7 @@ export const useSuggestionsManager = () => {
       if (ongoingHighlightFetchesCount.current === 0) {
         setIsFetchingHighlightSuggestion(false);
       }
-      return suggestion;
+      return { highlightSuggestion: suggestion, forPassageId: forPassageId };
     }
   };
 
@@ -201,18 +211,19 @@ export const useSuggestionsManager = () => {
       const callTimestamp = Date.now(); // Unique timestamp for this call
       latestCallTimestamps.current.set(id, callTimestamp); // Mark as latest
 
-      const newSuggestion = await refreshHighlightSuggestion(id, searchStartIdx, callTimestamp);
+      const result = await refreshHighlightSuggestion(id, searchStartIdx, callTimestamp);
+      let forPassageId: PassageId | null = result?.forPassageId ?? null;
 
       // If the LLM returned an empty suggestion, trigger a fetch for the next unhighlighted passage
       if (
-        !newSuggestion || newSuggestion.passage.trim().length === 0
+        !result || !forPassageId || !result.highlightSuggestion || result.highlightSuggestion.passage.trim().length === 0
       ) {
         const nextPassageId = passages.find(p => p.order === passage.order + 1)?.id;
         if (nextPassageId) {
-          return await inclusivelyFetchHighlightSuggestionAfter(nextPassageId);
+          forPassageId = await inclusivelyFetchHighlightSuggestionAfter(nextPassageId);
         }
       }
-      return id;
+      return forPassageId;
     },
     [passages]
   );
@@ -239,15 +250,17 @@ export const useSuggestionsManager = () => {
       const callTimestamp = Date.now(); // Unique timestamp for this call
       latestCallTimestamps.current.set(np.id, callTimestamp); // Mark as latest
 
-      const suggestion = await refreshHighlightSuggestion(np.id, 0, callTimestamp);
+      const result = await refreshHighlightSuggestion(np.id, 0, callTimestamp);
       
       if (
-        suggestion &&
-        suggestion.passage.trim().length > 0 &&
-        suggestion.codes.length > 0
+        result &&
+        result.highlightSuggestion &&
+        result.forPassageId &&
+        result.highlightSuggestion.passage.trim().length > 0 &&
+        result.highlightSuggestion.codes.length > 0
       ) {
         // Valid suggestion obtained, stop here
-        return np.id as PassageId;
+        return result.forPassageId;
       }
     }
     return null;

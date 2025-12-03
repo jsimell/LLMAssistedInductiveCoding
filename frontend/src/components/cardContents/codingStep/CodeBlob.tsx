@@ -62,13 +62,9 @@ const CodeBlob = ({
   const changeIndexRef = useRef<number>(inputValue.length); // Track index where last change occurred inside contentEditable
   const inputRef = useRef<HTMLSpanElement | null>(null);
   const firstSuggestionsFetch = useRef<boolean>(true);
+  const wasJustCreated = useRef<boolean>(true); // To skip activating on rerenders
 
   // EFFECTS
-  // Code blob should be active when first created IF it is the only code of the passage
-  useEffect(() => {
-    passages.find(p => p.id === parentPassage.id)?.codeIds.length === 1 &&
-      setActiveCodeId(codeId);
-  }, []);
 
   // Active code blob should have focus
   useEffect(() => {

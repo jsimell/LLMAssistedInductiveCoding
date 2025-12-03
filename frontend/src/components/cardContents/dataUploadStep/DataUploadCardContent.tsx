@@ -42,6 +42,7 @@ const DataUploadCardContent = () => {
     setRawData,
     parsedCSVdata,
     setParsedCSVdata,
+    setCodes,
   } = context;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -92,6 +93,10 @@ const DataUploadCardContent = () => {
   useEffect(() => {
     if (!uploadedFile || !rawData) return; // Only continue if both are defined
 
+    // If passages is already set, do not overwrite
+    // This prevents losing the passages state if user returns to this step later
+    if (passages.length > 0) return;
+
     if (uploadedFile.type === "text/plain") {
       setPassagesFromTextContent(rawData);
       setCsvHeaders([]); // Should be empty if not a CSV
@@ -114,6 +119,10 @@ const DataUploadCardContent = () => {
   // On parsedCSVdata change, update the passages and passagesPerColumn states
   useEffect(() => {
     if (!parsedCSVdata || parsedCSVdata.length === 0) return;
+
+    // If passages already exist (user has been coding), don't regenerate
+    if (passages.length > 0) return;
+
     setPassagesFromParsedCSV(parsedCSVdata);
   }, [parsedCSVdata]);
 
@@ -160,6 +169,7 @@ const DataUploadCardContent = () => {
 
         // Success
         setParsedCSVdata(parsedRawData);
+        setPassagesFromParsedCSV(parsedRawData);
       },
     });
   };
@@ -240,12 +250,15 @@ const DataUploadCardContent = () => {
       const reader = new FileReader();
 
       reader.onloadstart = () => {
+        // Reset states on new file selection
         setUploadStatus("loading");
         setUploadedFile(null);
         setCsvHeaders(null);
         setErrorMessage(null);
         setPassages([]);
         setPassagesPerColumn(null);
+        setCodes([]);
+        setProceedAvailable(false);
       };
 
       reader.onload = () => {

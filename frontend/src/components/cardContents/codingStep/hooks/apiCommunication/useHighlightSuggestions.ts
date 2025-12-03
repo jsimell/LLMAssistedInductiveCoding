@@ -2,6 +2,7 @@ import { useCallback, useContext } from "react";
 import {
   HighlightSuggestion,
   Passage,
+  PassageId,
   WorkflowContext,
 } from "../../../../../context/WorkflowContext";
 import { callOpenAIStateless } from "../../../../../services/openai";
@@ -91,7 +92,7 @@ export const useHighlightSuggestions = () => {
     "${precedingText}"
     ` : ""}
     ### SEARCH AREA
-    "${searchArea} ..."
+    "${searchArea}"
     `;
   };
 
@@ -150,7 +151,7 @@ export const useHighlightSuggestions = () => {
     "${precedingText}"
     ` : ""}
     ### SEARCH AREA
-    "${searchArea} ..."
+    "${searchArea}"
     `;
   };
 
@@ -206,12 +207,13 @@ export const useHighlightSuggestions = () => {
 
 
   /** Fetches the next highlight suggestion starting from a specific index inside a specific passage. 
+   *  For text files, simply searches the startPassage. For CSV files, the LLM may return a suggestion from following passages as well.
    * 
    * @param startPassage The passage from which to start searching for the highlight suggestion.
    * @param searchStartIndex The index in the startPassage text from which to start searching for the next highlight.
-   * @returns an object containing the suggested passage and codes, or null if valid suggestions could not be obtained.
+   * @returns a highlight suggestion and the passage ID it belongs to, or null if no suggestion could be fetched.
    */
-  const getNextHighlightSuggestion = useCallback(async (startPassage: Passage, searchStartIndex: number): Promise<HighlightSuggestion | null> => {
+  const getNextHighlightSuggestion = useCallback(async (startPassage: Passage, searchStartIndex: number): Promise<{highlightSuggestion: HighlightSuggestion, forPassageId: PassageId} | null> => {
     let attempt = 0;
     let clarificationMessage = ""; // Empty on first try
 
@@ -253,35 +255,34 @@ export const useHighlightSuggestions = () => {
         // Validate the response format and content
         const validatedResponse = validateHighlightSuggestionResponse(rawResponse, parsedResponse, searchArea);
 
-        // For text files, the suggestion is always within the startPassage, so we can calculate the index directly
-        let startIdx = searchStartIndex + searchArea.indexOf(validatedResponse.passage);
-        // However, for CSV files, we must find the start index of the suggested passage within the passage it belongs to
-        if (dataIsCSV) {
-          // We must find the start index of the suggested passage within the passage it belongs to
-          const startPassageAndFollowing = passages.filter((p) => p.order >= startPassage.order);
-          const firstHighlightedIdx = startPassageAndFollowing.findIndex((p) => p.isHighlighted);
-          const searchAreaPassages =
-            firstHighlightedIdx === -1
-              ? startPassageAndFollowing
-              : startPassageAndFollowing.slice(0, firstHighlightedIdx);
+        // We must find the start index of the suggested passage within the passage it belongs to
+        const startPassageAndFollowing = passages.filter((p) => p.order >= startPassage.order);
+        const firstHighlightedIdx = startPassageAndFollowing.findIndex((p) => p.isHighlighted);
+        const searchAreaPassages =
+          firstHighlightedIdx === -1
+            ? startPassageAndFollowing
+            : startPassageAndFollowing.slice(0, firstHighlightedIdx);
 
-          // Get the passages that the suggestion is a substring of
-          const candidates = searchAreaPassages.filter((p) =>
-            p.text.includes(validatedResponse.passage)
-          );
+        // Get the passages that the suggestion is a substring of
+        const candidates = searchAreaPassages.filter((p) =>
+          p.text.includes(validatedResponse.passage)
+        );
 
-          if (candidates.length === 0) {
-            throw new Error("InvalidResponseFormatError: Suggested passage is not a substring of the search area.");
-          }
-
-          // Simply choose the first candidate passage that contains the suggestion
-          const candidatePassage = candidates[0];
-          // Calculate the start index within that passage
-          startIdx = candidatePassage.text.indexOf(validatedResponse.passage);
+        if (candidates.length === 0) {
+          throw new Error("InvalidResponseFormatError: Suggested passage is not a substring of the search area.");
         }
 
+        // Simply choose the first candidate passage that contains the suggestion
+        const candidatePassage = candidates[0];
+        // Calculate the start index within that passage
+        const startIdx = candidatePassage.text.indexOf(validatedResponse.passage);
+        const forPassageId = candidatePassage.id;
+
         // Success (no error caught) - return the suggestion
-        return {passage: validatedResponse.passage, startIndex: startIdx, codes: validatedResponse.codes};
+        return {
+          highlightSuggestion: {passage: validatedResponse.passage, startIndex: startIdx, codes: validatedResponse.codes},
+          forPassageId: forPassageId,
+        };
       } catch (error) {
         // Parsing failed, retry with a clarifying message
         clarificationMessage = `

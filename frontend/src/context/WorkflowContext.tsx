@@ -37,6 +37,7 @@ export interface Code {
   code: string;
 }
 
+
 export interface HighlightSuggestion {
   passage: string;
   startIndex: number;

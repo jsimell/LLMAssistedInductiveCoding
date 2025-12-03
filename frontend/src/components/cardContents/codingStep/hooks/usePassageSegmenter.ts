@@ -25,6 +25,7 @@ export const usePassageSegmenter = () => {
     setNextCodeIdNumber,
     nextPassageIdNumber,
     setNextPassageIdNumber,
+    setActiveCodeId,
   } = context;
 
   /**
@@ -244,6 +245,9 @@ export const usePassageSegmenter = () => {
         code: "",
       },
     ]);
+
+    // 10. The newly added code should be active
+    setActiveCodeId(newCodeId);
 
     return highlightedPassageId;
   };

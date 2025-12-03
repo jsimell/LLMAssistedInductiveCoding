@@ -1,9 +1,12 @@
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { WorkflowContext } from "../../../context/WorkflowContext";
 import CodeBookRow from "./CodeBookRow";
-import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
+import { ArrowDownTrayIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import SmallButton from "../../SmallButton";
 import { parse } from "papaparse";
+import OverlayWindow from "../../OverlayWindow";
+import { getPassageWithSurroundingContext } from "./utils/passageUtils";
+import CodeSummaryWindowContent from "./CodeSummaryWindowContent";
 
 interface CodebookProps {
   codeManager: {
@@ -14,9 +17,12 @@ interface CodebookProps {
 const Codebook = ({ codeManager }: CodebookProps) => {
   const [rawImportContent, setRawImportContent] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showCodeSummaryFor, setShowCodeSummaryFor] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { codebook, setCodebook, codes } = useContext(WorkflowContext)!;
+  const { codebook, setCodebook, codes, passages, uploadedFile } = useContext(WorkflowContext)!;
+
+  const dataIsCSV = (uploadedFile && uploadedFile.type === "text/csv") ?? false;
 
   const getCodeCount = (code: string) => {
     return codes.filter((c) => c.code === code).length;
@@ -27,6 +33,14 @@ const Codebook = ({ codeManager }: CodebookProps) => {
       .filter((code) => code ? code.trim().length > 0 : false)
       .sort((a, b) => getCodeCount(b) - getCodeCount(a));
   }, [codebook, codes]); // Only re-sort when codebook or codes change
+
+  const usedCodes = useMemo(() => {
+    return codebookArray.filter(c => getCodeCount(c) > 0);
+  }, [codebookArray]);
+
+  const unusedCodes = useMemo(() => {
+    return codebookArray.filter(c => getCodeCount(c) === 0);
+  }, [codebookArray]);
 
   // When rawImportContent appears, parse it and update the codebook
   useEffect(() => {
@@ -124,10 +138,21 @@ const Codebook = ({ codeManager }: CodebookProps) => {
             />
           </div>
         }
-        {codebookArray.map((code) => (
-          <CodeBookRow key={code} code={code} codeManager={codeManager} />
+        {usedCodes.map((code) => (
+          <CodeBookRow key={code} code={code} codeManager={codeManager} count={getCodeCount(code)} setShowCodeSummaryFor={setShowCodeSummaryFor}  />
+        ))}
+        {unusedCodes.length > 0 && <p className="self-start pb-1 pt-4 font-medium">Unused codes:</p>}
+        {codebookArray.filter(c => getCodeCount(c) === 0).map((code) => (
+          <CodeBookRow key={code} code={code} codeManager={codeManager} count={getCodeCount(code)} setShowCodeSummaryFor={setShowCodeSummaryFor} />
         ))}
       </div>
+      <OverlayWindow isVisible={showCodeSummaryFor !== null} onClose={() => setShowCodeSummaryFor(null)} maxWidth="max-w-[60vw]" maxHeight="max-h-[60vh]">
+        <CodeSummaryWindowContent 
+          showCodeSummaryFor={showCodeSummaryFor} 
+          setShowCodeSummaryFor={setShowCodeSummaryFor} 
+          dataIsCSV={dataIsCSV} 
+        />
+      </OverlayWindow>
     </div>
   );
 };

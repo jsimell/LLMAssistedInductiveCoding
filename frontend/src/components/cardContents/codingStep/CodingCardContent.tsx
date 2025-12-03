@@ -23,6 +23,7 @@ const CodingCardContent = () => {
     setActiveCodeId,
     uploadedFile,
     csvHeaders,
+    setProceedAvailable,
   } = context;
 
   // Custom hooks
@@ -42,7 +43,6 @@ const CodingCardContent = () => {
     : []; // For text files, no columns
 
   // Local states
-  const [hoveredPassageId, setHoveredPassageId] = useState<PassageId | null>(null);
   const [showHighlightSuggestionFor, setShowHighlightSuggestionFor] = useState<PassageId | null>(null);
   const [pendingHighlightFetches, setPendingHighlightFetches] = useState<Array<PassageId>>([]);
   const [displayedColumn, setDisplayedColumn] = useState<string>(columnNames[0] || "");
@@ -53,6 +53,11 @@ const CodingCardContent = () => {
   // Keep a stable ref to the latest fetch function to avoid effect re-trigger on identity changes
   const inclusiveFetchRef = useRef(inclusivelyFetchHighlightSuggestionAfter);
   
+  /** Proceed should be available by default */
+  useEffect(() => {
+    setProceedAvailable(true);
+  }, []);
+
   /**
    * If the uploaded file is CSV file -> on change of displayedColumn, change the displayed passages accordingly 
    */
@@ -324,6 +329,7 @@ const CodingCardContent = () => {
           if (isProcessingPendingRef.current) return;
           if (!p.isHighlighted) {
             setActiveCodeId(null);
+            setShowHighlightSuggestionFor(p.id);
             setPendingHighlightFetches((prev) => {
               // Only add if not already pending
               if (!prev.includes(p.id)) {
@@ -333,8 +339,6 @@ const CodingCardContent = () => {
             });
           }
         }}
-        onMouseEnter={() => setHoveredPassageId(p.id)}
-        onMouseLeave={() => setHoveredPassageId(null)}
         className="inline"
       >
         <span>
@@ -407,7 +411,7 @@ const CodingCardContent = () => {
         }}
         className="flex-1 rounded-lg border-1 border-outline py-6 px-8 text-onBackground text-base whitespace-pre-wrap"
       >
-        <p>File: <i>{uploadedFile?.name}</i></p>
+        <p><b>File:</b> <i>{uploadedFile?.name}</i></p>
         {uploadedFile?.type === "text/csv" && 
           <div className="flex items-center gap-2 pt-2 min-w-0">
             <span className="whitespace-nowrap pr-2">Displayed column:</span>

@@ -2,15 +2,18 @@ import { PencilSquareIcon } from "@heroicons/react/24/solid";
 import { useContext, useEffect, useRef, useState } from "react";
 import { WorkflowContext } from "../../../context/WorkflowContext";
 import SmallButton from "../../SmallButton.jsx";
+import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 interface CodeBookRowProps {
   code: string;
   codeManager: {
     editAllInstancesOfCode: (oldValue: string, newValue: string) => void;
   };
+  count: number;
+  setShowCodeSummaryFor: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
-const CodeBookRow = ({ code, codeManager }: CodeBookRowProps) => {
+const CodeBookRow = ({ code, codeManager, count, setShowCodeSummaryFor }: CodeBookRowProps) => {
   if (!code.trim()) return null;
 
   const { codes, setCodebook } = useContext(WorkflowContext)!; // Non-null assertion since parent already ensures WorkflowContext is provided
@@ -130,18 +133,41 @@ const CodeBookRow = ({ code, codeManager }: CodeBookRowProps) => {
       {showEditInteraction ? (
         renderEditInteraction()
       ) : (
-        <>
-          <span>{`(${
-            codes.filter((c) => (c.code ?? "").trim() === code.trim()).length
-          })`}</span>
-          <span className="flex items-center w-full justify-between gap-4 py-1">
-            {code.trim()}
+        <div className="flex justify-between items-center w-full">
+          <div className="flex items-center gap-2">
+            <span>{`(${
+              codes.filter((c) => (c.code ?? "").trim() === code.trim()).length
+            })`}</span>
+            <span>{code.trim()}</span>
+          </div>
+          <span className="flex items-center py-1">
             <PencilSquareIcon
+              title="Edit all instances of code"
               onClick={() => setShowEditInteraction(true)}
               className="w-6 h-6 p-0.5 flex-shrink-0 rounded-sm text-[#007a60] hover:bg-tertiary/10 cursor-pointer"
             />
+            {count > 0 &&
+              <MagnifyingGlassIcon
+                title="Show code summary"
+                onClick={() => setShowCodeSummaryFor(code)}
+                className="w-6 h-6 p-0.5 flex-shrink-0 rounded-sm text-[#03528f] hover:bg-primary/10 cursor-pointer stroke-3"
+              />
+            }
+            {count === 0 && 
+              <XMarkIcon 
+                title="Delete unused code" 
+                className="w-6 h-6 p-0.5 flex-shrink-0 rounded-full text-red-800 hover:bg-red-700/10 cursor-pointer stroke-3"
+                onClick={() => {
+                  setCodebook(prev => {
+                    const newCodebook = new Set(prev);
+                    newCodebook.delete(code);
+                    return newCodebook;
+                  })
+                }}
+                />
+            }
           </span>
-        </>
+        </div>
       )}
     </div>
   );

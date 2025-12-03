@@ -164,9 +164,9 @@ export const getTrailingContextFromCsvRow = (
 // PUBLIC API
 
 /**
- * Returns the passage with surrounding context. Context is cut intelligently to avoid breaking sentences or lines.
+ * Returns the passage with surrounding context. For CSV files, returns the entire row that the passage belongs to.
+ * For text files, context is cut intelligently to avoid breaking sentences or lines.
  * Truncation appears within 200 characters at both the start and end of the contextWindow.
- * If passages are from CSV data, context is only taken from the same CSV row.
  * @param passage The passage object for which to get the surrounding context
  * @param passages All passages in the document
  * @param minContextWindowSize Minimum number of additional characters to include in the context window in addition to the passage text.
