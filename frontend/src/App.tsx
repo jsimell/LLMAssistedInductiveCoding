@@ -1,8 +1,20 @@
+import { useEffect } from 'react';
 import Header from './components/Header'
 import Sidebar from './components/Sidebar'
 import Workspace from './components/Workspace'
 
-function App() {
+const App = () => {
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      // If you always want to warn when leaving:
+      event.preventDefault();
+      return "Are you sure you want to leave the page? Information will be lost.";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
 return (
     <div className='flex flex-col w-screen h-screen'>
       <Header />
@@ -15,5 +27,4 @@ return (
     </div>
   )
 }
-
 export default App
