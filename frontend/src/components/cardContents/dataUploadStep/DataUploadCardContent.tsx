@@ -16,10 +16,12 @@ import Button from "../../Button";
 import InfoBox from "../../InfoBox";
 import { parse } from "papaparse";
 import CSVsettingsCard from "./CSVsettingsCard";
+import OverlayWindow from "../../OverlayWindow";
 
 const DataUploadCardContent = () => {
   const [uploadStatus, setUploadStatus] = useState("idle"); // idle, loading, error, success
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showChangeFileConfirmation, setShowChangeFileConfirmation] = useState<boolean>(false);
 
   const context = useContext(WorkflowContext);
   if (!context) {
@@ -349,12 +351,39 @@ const DataUploadCardContent = () => {
       <div className={!uploadedFile ? "-mt-6" : ""}>
         <Button
           label={uploadedFile ? "Change file" : "Browse files"}
-          onClick={handleBrowseButtonClick}
+          onClick={() => {
+            uploadedFile 
+              ? setShowChangeFileConfirmation(true) 
+              : handleBrowseButtonClick()
+          }}
           icon={uploadedFile ? ArrowsRightLeftIcon : FolderArrowDownIcon}
           iconPosition="start"
           variant="tertiary"
         />
       </div>
+      <OverlayWindow isVisible={showChangeFileConfirmation} onClose={() => setShowChangeFileConfirmation(false)} maxWidth="max-w-[60vw]" maxHeight="max-h-[60vh]">
+        <div className="flex flex-col items-center p-6">
+          <div className="flex flex-col gap-2 items-center pb-6">
+            <p>Are you sure you want to select a new file for coding?</p>
+            <p>You will lose your current coding progress.</p>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button
+              label="Cancel"
+              onClick={() => setShowChangeFileConfirmation(false)}
+              variant="outlineTertiary"
+            />
+            <Button
+              label="Yes, change file"
+              onClick={() => {
+                setShowChangeFileConfirmation(false);
+                handleBrowseButtonClick();
+              }}
+              variant="tertiary"
+            />
+          </div>
+        </div>
+      </OverlayWindow>
     </div>
   );
 };
