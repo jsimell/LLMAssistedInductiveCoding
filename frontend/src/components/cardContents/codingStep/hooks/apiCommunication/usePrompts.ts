@@ -127,9 +127,9 @@ If no relevant passage is found:
 }
 No explanations or extra text.
 No truncation indicators (e.g. "...").
-No JSON tags or markdown formatting.
+No JSON tags (\`\`\`json) or other markdown formatting.
 Codes must NOT contain semicolons (;).
-Start codes with lowercase unless codebook uses uppercase.
+Start codes with lowercase unless codebook consistently uses uppercase.
 If you suggest a passage, the codes array must never be empty.
 Escape special characters in "passage" (e.g. double quotes as \\", newlines as \\n, tabs as \\t).
 
@@ -240,8 +240,9 @@ If no relevant passage is found:
 }
 No explanations or extra text.
 No truncation indicators (e.g. "...").
+No JSON tags (\`\`\`json) or other markdown formatting.
 Codes must NOT contain semicolons (;).
-Start codes with lowercase unless codebook uses uppercase.
+Start codes with lowercase unless codebook consistently uses uppercase.
 The "passage" MUST be an exact, case-sensitive substring of the SEARCH AREA.
 Escape special characters in "passage" (e.g. double quotes as \\", newlines as \\n, tabs as \\t).
 Do not include the end of row token \\u001E in your response.
@@ -380,7 +381,7 @@ Existing codes: ${
 
 ## RESPONSE FORMAT
 Respond ONLY with a JSON array of code strings, e.g. ["code1", "code2", "code3"]. 
-No explanations. Codes must never contain semicolons (;).
+No explanations. No JSON tags (\`\`\`json) or other markdown formatting. Codes must never contain semicolons (;).
 
 ## CONTEXT WINDOW
 The target passage appears in the context window between "<<<" and ">>>".
@@ -515,7 +516,8 @@ Existing codes: ${
 }
 
 ## RESPONSE FORMAT
-Respond ONLY with a JSON array of code strings, e.g. ["code1", "code2", "code3"]. No explanations. Codes must never contain semicolons (;).
+Respond ONLY with a JSON array of code strings, e.g. ["code1", "code2", "code3"]. 
+No explanations. No JSON tags (\`\`\`json) or other markdown formatting. Codes must never contain semicolons (;).
 
 ## CONTEXT WINDOW
 The target passage appears in the context window between "<<<" and ">>>".
