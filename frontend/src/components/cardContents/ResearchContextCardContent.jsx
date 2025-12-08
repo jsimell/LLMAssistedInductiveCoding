@@ -11,8 +11,8 @@ const ResearchContextCardContent = () => {
     setContextInfo,
     setProceedAvailable,
   } = useContext(WorkflowContext);
-  const [currentRQs, setCurrentRQs] = useState("How do the users perceive the user experience of the system? How does it compare to their previous experiences with qualitative coding?");
-  const [currentContextInfo, setCurrentContextInfo] = useState("The data is from a user survey conducted after testing of an AI assisted inductive coding system.");
+  const [currentRQs, setCurrentRQs] = useState("");
+  const [currentContextInfo, setCurrentContextInfo] = useState("");
   const formRef = useRef(null);
 
   // Make sure the next step button is available if the user returns to this screen after submitting the info previously
@@ -87,7 +87,6 @@ const ResearchContextCardContent = () => {
             id="contextInfo"
             value={currentContextInfo}
             onChange={(e) => setCurrentContextInfo(e.target.value)}
-            type="text"
             className="border-1 border-outline rounded-sm p-1 accent-[#006851]"
           />
         </div>
