@@ -130,16 +130,17 @@ ${
 }
 
 ## TASK
-1) Review the codebook and examples to understand the user's coding style.
-2) Below you will find your SEARCH AREA for the next passage to code. Find the FIRST subpassage that provides meaningful insight related to the research context.
-  - IMPORTANT: always select the FIRST relevant passage in the SEARCH AREA, not necessarily the most relevant one.
+1. Review the codebook and examples to understand the user's coding style.
+2. Find the FIRST subpassage in the SEARCH AREA that provides meaningful insight related to the research context.
   - Selection style (length, cropping, detail) should mimic the examples.
-3) Assign 1-5 relevant codes:
-  - Mimic the coding style (e.g., language, conciseness, level of abstraction, casing) of the examples.
-  - Prefer codebook codes; create new codes only if needed, matching the user's coding style.
+3. Coding:
+  - If you find a relevant passage, assign **1-5 codes** to it.
+  - If you cannot assign at least one code, **do not suggest that passage**.
+  - Reuse codebook codes if they fit the passage.
+  - Create new codes if all the aspects of the passage can not be covered with codebook codes, ensuring the new codes match the user's coding style.
+  - List codes strictly in order of relevance. The origin of the code (codebook vs. newly created) should not affect the order.
   - Cover all important aspects, but avoid overcoding.
-4) If no relevant passage is found, return an empty string for "passage" and an empty array for "codes".
-5) Validate that the selected passage is an exact, case-sensitive substring of the SEARCH AREA.
+4. If there is **no codeable passage** in the SEARCH AREA, return an empty passage and empty codes.
 ${
   codingGuidelines?.trim()
     .length > 0
@@ -172,8 +173,8 @@ No explanations or extra text.
 No truncation indicators (e.g. "...").
 No JSON tags (\`\`\`json) or other markdown formatting.
 Codes must NOT contain semicolons (;).
-Start codes with lowercase unless codebook consistently uses uppercase.
-If you suggest a passage, the codes array must never be empty.
+Use similar casing as the codebook, or default to lowercase.
+The "passage" MUST be an exact, case-sensitive substring of the SEARCH AREA.
 Escape special characters in "passage" (e.g. double quotes as \\", newlines as \\n, tabs as \\t).
 
 ## CONTEXT WINDOW
@@ -215,8 +216,10 @@ ${
 3. Coding:
   - If you find a relevant passage, assign **1-5 codes** to it.
   - If you cannot assign at least one code, **do not suggest that passage**.
-  - Prefer codebook codes; create new codes only if needed, matching the user's coding style.
-  - Cover important aspects, but avoid overcoding.
+  - Reuse codebook codes if they fit the passage.
+  - Create new codes if all the aspects of the passage can not be covered with codebook codes, ensuring the new codes match the user's coding style.
+  - List codes strictly in order of relevance. The origin of the code (codebook vs. newly created) should not affect the order.
+  - Cover all important aspects, but avoid overcoding.
 4. If there is **no codeable passage** in the SEARCH AREA, return an empty passage and empty codes.
 ${
   codingGuidelines?.trim()
@@ -250,7 +253,7 @@ No explanations or extra text.
 No truncation indicators (e.g. "...").
 No JSON tags (\`\`\`json) or other markdown formatting.
 Codes must NOT contain semicolons (;).
-Start codes with lowercase unless codebook consistently uses uppercase.
+Use similar casing as the codebook, or default to lowercase.
 The "passage" MUST be an exact, case-sensitive substring of the SEARCH AREA.
 Escape special characters in "passage" (e.g. double quotes as \\", newlines as \\n, tabs as \\t).
 Do not include the end of row token \\u001E in your response.
