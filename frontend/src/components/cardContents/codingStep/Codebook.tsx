@@ -183,7 +183,7 @@ const Codebook = ({ codeManager }: CodebookProps) => {
             </div>
           );
         })}
-        {importedCodesArray.length > 0 && <p className="self-start pb-1 font-medium">Unused imported codes:</p>}
+        {importedCodesArray.length > 0 && <p className="self-start pb-1 font-medium">Unused/imported codes:</p>}
         {importedCodesArray.map((code) => (
           <CodeBookRow key={code} code={code} codeManager={codeManager} count={getCodeCount(code)} setShowCodeSummaryFor={setShowCodeSummaryFor} />
         ))}
