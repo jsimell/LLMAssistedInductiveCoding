@@ -51,7 +51,7 @@ const CodeBlob = ({
 
   // CONTEXT
   const context = useContext(WorkflowContext)!; // Non-null assertion since parent already ensures WorkflowContext is provided
-  const { codes, passages, aiSuggestionsEnabled } = context;
+  const { codes, passages, setPassages, aiSuggestionsEnabled } = context;
 
   // STATE
   const [ghostText, setGhostText] = useState<string>("Type code...");
@@ -60,11 +60,9 @@ const CodeBlob = ({
   const [inputValue, setInputValue] = useState(codeObject.code);
     
   // REFS
-  const suggestionsDisabledRef = useRef<boolean>(false); // When user declines a ghost text suggestion, disable suggestions for this code edit session
   const changeIndexRef = useRef<number>(inputValue.length); // Track index where last change occurred inside contentEditable
   const inputRef = useRef<HTMLSpanElement | null>(null);
   const firstSuggestionsFetch = useRef<boolean>(true);
-  const wasJustCreated = useRef<boolean>(true); // To skip activating on rerenders
 
   // EFFECTS
 
@@ -112,7 +110,7 @@ const CodeBlob = ({
 
   // Update ghost text based on input value and suggestions
   useEffect(() => {
-    if (suggestionsDisabledRef.current || !aiSuggestionsEnabled) {
+    if (!aiSuggestionsEnabled) {
       inputValue.length === 0 ? setGhostText("Type code...") : setGhostText("");
       return;
     }
@@ -224,7 +222,20 @@ const CodeBlob = ({
     if (e.key === "Escape") {
       if (ghostText && ghostText !== "Type code...") {
         e.preventDefault();
-        suggestionsDisabledRef.current = true;
+        // Remove the suggested text from the passage's code and autocomplete suggestions
+        const passage = passages.find(p => p.id === parentPassage.id);
+        if (!passage) return;
+        setPassages(prevPassages => prevPassages.map(p => {
+          if (p.id === passage.id && p.isHighlighted) {
+            return {
+              ...p,
+              codeSuggestions: p.codeSuggestions.filter(s => s !== ghostText),
+              autocompleteSuggestions: p.autocompleteSuggestions.filter(s => s !== ghostText),
+            };
+          }
+          return p;
+        }));
+        // And hide ghost text until user changes input again
         return;
       } else {
         e.preventDefault();
@@ -264,9 +275,6 @@ const CodeBlob = ({
       return;
     }
     clickedSuggestionsToggleRef.current = false;
-
-    // Re-enable suggestions for next edit session
-    suggestionsDisabledRef.current = false;
 
     const codeObject: Code | undefined = codes.find(
       (c) => c.id === activeCodeId
@@ -341,7 +349,7 @@ const CodeBlob = ({
           >
             {inputValue}
           </span>
-          {activeCodeId === codeId && !suggestionsDisabledRef.current && (
+          {activeCodeId === codeId && (
             <span 
               onMouseDown={(e) => {
                 e.preventDefault(); // Prevent blur event on contentEditable element
