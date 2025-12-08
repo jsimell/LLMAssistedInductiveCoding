@@ -232,7 +232,6 @@ export const usePassageSegmenter = () => {
       const sorted = [...updated].sort((a, b) => a.order - b.order);
       // re-index orders strictly by index for safety
       const reIndexed = sorted.map((p, index) => ({ ...p, order: index }));
-      console.log("Re-indexed passages:", reIndexed);
       return reIndexed;
     });
 
