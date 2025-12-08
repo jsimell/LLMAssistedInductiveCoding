@@ -43,7 +43,7 @@ const OverlayWindow: React.FC<OverlayWindowProps> = ({
     >
       <div
         className={`
-          bg-background rounded-lg shadow-xl px-6 py-4 w-fit h-fit ${maxWidth} ${maxHeight}
+          bg-background rounded-lg shadow-xl w-fit h-fit ${maxWidth} ${maxHeight}
         `} 
         onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside the window
       >

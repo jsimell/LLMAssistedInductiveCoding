@@ -1,8 +1,18 @@
 import { useContext } from "react";
 import { WorkflowContext } from "../context/WorkflowContext";
 
-const StepIndicator = ({ label, idx }) => {
-  const { currentStep, setCurrentStep, visitedSteps } = useContext(WorkflowContext);
+interface StepIndicatorProps {
+  label: string;
+  idx: number;
+  showLabels: boolean;
+}
+
+const StepIndicator = ({ label, idx, showLabels }: StepIndicatorProps) => {
+  const context = useContext(WorkflowContext);
+  if (!context) {
+    throw new Error("StepIndicator must be used within a WorkflowProvider");
+  }
+  const { currentStep, setCurrentStep, visitedSteps } = context;
   const isVisited = visitedSteps.has(idx);
 
   const handleClick = () => {
@@ -18,14 +28,15 @@ const StepIndicator = ({ label, idx }) => {
 
   return (
     <div 
-      className={`flex gap-4 h-fit w-fit rounded-xl pr-2 items-center
+      className={`flex gap-4 h-fit w-full rounded-xl items-center py-1
         ${isVisited ? "cursor-pointer hover:bg-primary/10 hover:text-primary" : "cursor-default"}
+        ${!showLabels ? "rounded-full justify-center" : ""}
       `}
       onClick={handleClick}
       title={isVisited ? `Return to the '${label}' step` : undefined}
     >
       <div className={circleClasses}></div>
-      <p className={`text-base text-nowrap ${idx === currentStep ? "font-bold text-primary" : ""} ${!isVisited ? "text-gray-500" : ""}`}>{label}</p>
+      {showLabels && <p className={`text-base text-nowrap ${idx === currentStep ? "font-bold text-primary" : ""} ${!isVisited ? "text-gray-500" : ""}`}>{label}</p>}
     </div>
   );
 };

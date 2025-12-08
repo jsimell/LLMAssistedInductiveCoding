@@ -1,9 +1,5 @@
 import { useState, useContext, useEffect, useRef } from "react";
-import {
-  Passage,
-  PassageId,
-  WorkflowContext,
-} from "../../../context/WorkflowContext";
+import { Passage, PassageId, WorkflowContext } from "../../../context/WorkflowContext";
 import Codebook from "./Codebook";
 import CodeBlob from "./CodeBlob";
 import { usePassageSegmenter } from "./hooks/usePassageSegmenter";
@@ -71,10 +67,10 @@ const CodingCardContent = () => {
   // Keep a stable ref to the latest fetch function to avoid effect re-trigger on identity changes
   const inclusiveFetchRef = useRef(inclusivelyFetchHighlightSuggestionAfter);
 
-  /** 
+  /**
    * Proceed should be available by default.
    * Also, make it possible to proceed to the next step through the sidebar as well
-  */
+   */
   useEffect(() => {
     setProceedAvailable(true);
     setVisitedSteps((prev) => {
@@ -430,42 +426,44 @@ const CodingCardContent = () => {
   };
 
   return (
-    <div className="flex w-full gap-7">
-      <div
-        onMouseUp={() => {
-          const selection = window.getSelection();
-          if (selection && selection.rangeCount > 0) {
-            handleUserHighlight(selection);
-          }
-        }}
-        className="flex-1 rounded-lg border-1 border-outline py-6 px-8 text-onBackground text-base whitespace-pre-wrap"
-      >
-        <p>
-          <b>File:</b> <i>{uploadedFile?.name}</i>
-        </p>
-        {uploadedFile?.type === "text/csv" && (
-          <div className="flex items-center gap-2 pt-2 min-w-0">
-            <span className="whitespace-nowrap pr-2">Displayed column:</span>
-            <select
-              name="displayedColumn"
-              aria-label="Displayed CSV column"
-              className="bg-transparent border border-outline rounded-sm pl-1 min-w-[100px] max-w-[300px] w-full truncate"
-              value={displayedColumn}
-              onChange={handleDisplayedColumnChange}
-            >
-              {columnNames.map((colName, idx) => (
-                <option key={colName + idx} value={colName}>
-                  {colName}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-        {passages.map((p) => renderPassage(p))}
-      </div>
-      <div className="flex flex-col items-center gap-4 h-fit w-fit min-w-50 max-w-sm">
-        <Codebook codeManager={codeManager} />
-        <CodingSettingsCard clickedSuggestionsToggleRef={clickedSuggestionsToggleRef} />
+    <div className="flex flex-col min-h-[100vh]">
+      <div className="flex w-full gap-7 flex-1">
+        <div
+          onMouseUp={() => {
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0) {
+              handleUserHighlight(selection);
+            }
+          }}
+          className="flex-1 rounded-lg border-1 border-outline py-6 px-8 text-onBackground text-base whitespace-pre-wrap"
+        >
+          <p>
+            <b>File:</b> <i>{uploadedFile?.name}</i>
+          </p>
+          {uploadedFile?.type === "text/csv" && (
+            <div className="flex items-center gap-2 pt-2 min-w-0">
+              <span className="whitespace-nowrap pr-2">Displayed column:</span>
+              <select
+                name="displayedColumn"
+                aria-label="Displayed CSV column"
+                className="bg-transparent border border-outline rounded-sm pl-1 min-w-[100px] max-w-[300px] w-full truncate"
+                value={displayedColumn}
+                onChange={handleDisplayedColumnChange}
+              >
+                {columnNames.map((colName, idx) => (
+                  <option key={colName + idx} value={colName}>
+                    {colName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {passages.map((p) => renderPassage(p))}
+        </div>
+        <div className="flex flex-col items-center gap-4 h-full w-fit min-w-50 max-w-sm">
+          <CodingSettingsCard clickedSuggestionsToggleRef={clickedSuggestionsToggleRef} />
+          <Codebook codeManager={codeManager} />
+        </div>
         {isFetchingHighlightSuggestion && !activeCodeId && (
           <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
             <InfoBox msg="Fetching highlight suggestion..." variant="loading"></InfoBox>

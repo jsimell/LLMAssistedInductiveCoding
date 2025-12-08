@@ -280,127 +280,116 @@ const CodingSettingsCard = ({ clickedSuggestionsToggleRef }: CodingSettingsCardP
         isVisible={showExamplesSelectionWindow}
         onClose={() => setShowExamplesSelectionWindow(false)}
       >
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col px-4">
-            <div className="flex flex-col">
-              <div className="flex justify-between items-center gap-20 bg-background pt-2 pb-6 z-10">
-                <p className="text-lg font-semibold">Select examples for the AI</p>
-                <XMarkIcon
-                  title="Close window"
-                  className="w-8 h-8 p-0.5 flex-shrink-0 rounded-full text-black hover:bg-gray-700/10 cursor-pointer stroke-2"
-                  onClick={() => setShowExamplesSelectionWindow(false)}
-                />
-              </div>
-            </div>
-            <div className="overflow-y-auto max-h-[60vh]">
-              <span className="block mb-8 w-full border-t border-outline"></span>
-              {passages
-                .filter((p) => p.isHighlighted)
-                .map((passage) => {
-                  const context = getPassageWithSurroundingContext(
-                    passage,
-                    passages,
-                    50,
-                    20,
-                    false,
-                    dataIsCSV
-                  );
-                  const passageStartIdx = context.indexOf(passage.text);
-                  const isInExamples = Boolean(
-                    fewShotExamples.find((example) => example.passageId === passage.id)
-                  );
-                  return (
-                    <>
-                      <div className="flex gap-6 items-center pl-4">
-                        <input
-                          type="checkbox"
-                          className="accent-[#006851]"
-                          checked={isInExamples}
-                          onChange={() => {
-                            setFewShotExamples((prev) => {
-                              if (
-                                prev.find((example) => example.passageId === passage.id)
-                              ) {
-                                // If already in few-shot examples, remove it
-                                return prev.filter(
-                                  (example) => example.passageId !== passage.id
-                                );
-                              } else {
-                                // Else, add it
-                                return [
-                                  ...prev,
-                                  {
-                                    passageId: passage.id,
-                                    context: getPassageWithSurroundingContext(
-                                      passage,
-                                      passages,
-                                      50,
-                                      20,
-                                      true,
-                                      dataIsCSV
-                                    ),
-                                    codedPassage: passage.text,
-                                    codes: passage.codeIds
-                                      .map(
-                                        (codeId) =>
-                                          codes.find((code) => code.id === codeId)?.code
-                                      )
-                                      .filter(Boolean) as string[],
-                                  },
-                                ];
-                              }
-                            });
-                          }}
-                        />
-                        <div
-                          key={passage.id}
-                          className={`pr-6 ${
-                            isInExamples
-                              ? "border-l-7 pl-2 rounded-l-sm border-[#006851]"
-                              : ""
-                          }`}
-                        >
-                          <span>{context.slice(0, passageStartIdx)}</span>
-                          <span className="bg-tertiaryContainer rounded-sm w-fit mr-1">
-                            {context.slice(
-                              passageStartIdx,
-                              passageStartIdx + passage.text.length
-                            )}
+        <div className="flex justify-between items-center bg-gray-300 w-full h-fit px-6 py-4 rounded-t-lg z-10">
+          <p className="text-xl font-semibold">Select examples for the AI</p>
+          <XMarkIcon
+            title="Close window"
+            className="w-8 h-8 p-0.5 flex-shrink-0 rounded-full text-black hover:bg-gray-700/10 cursor-pointer stroke-2"
+            onClick={() => setShowExamplesSelectionWindow(false)}
+          />
+        </div>
+        <div className="flex flex-col gap-5 px-12 pt-10 overflow-y-auto max-h-[60vh]">
+          {passages
+            .filter((p) => p.isHighlighted)
+            .map((passage) => {
+              const context = getPassageWithSurroundingContext(
+                passage,
+                passages,
+                50,
+                20,
+                false,
+                dataIsCSV
+              );
+              const passageStartIdx = context.indexOf(passage.text);
+              const isInExamples = Boolean(
+                fewShotExamples.find((example) => example.passageId === passage.id)
+              );
+              return (
+                <>
+                  <div className="flex gap-6 items-center pl-4">
+                    <input
+                      type="checkbox"
+                      className="accent-[#006851]"
+                      checked={isInExamples}
+                      onChange={() => {
+                        setFewShotExamples((prev) => {
+                          if (prev.find((example) => example.passageId === passage.id)) {
+                            // If already in few-shot examples, remove it
+                            return prev.filter(
+                              (example) => example.passageId !== passage.id
+                            );
+                          } else {
+                            // Else, add it
+                            return [
+                              ...prev,
+                              {
+                                passageId: passage.id,
+                                context: getPassageWithSurroundingContext(
+                                  passage,
+                                  passages,
+                                  50,
+                                  20,
+                                  true,
+                                  dataIsCSV
+                                ),
+                                codedPassage: passage.text,
+                                codes: passage.codeIds
+                                  .map(
+                                    (codeId) =>
+                                      codes.find((code) => code.id === codeId)?.code
+                                  )
+                                  .filter(Boolean) as string[],
+                              },
+                            ];
+                          }
+                        });
+                      }}
+                    />
+                    <div
+                      key={passage.id}
+                      className={`pr-6 ${
+                        isInExamples
+                          ? "border-l-7 pl-2 rounded-l-sm border-[#006851]"
+                          : ""
+                      }`}
+                    >
+                      <span>{context.slice(0, passageStartIdx)}</span>
+                      <span className="bg-tertiaryContainer rounded-sm w-fit mr-1">
+                        {context.slice(
+                          passageStartIdx,
+                          passageStartIdx + passage.text.length
+                        )}
+                      </span>
+                      {passage.codeIds.map((codeId) => {
+                        const code = codes.find((c) => c.id === codeId);
+                        return code ? (
+                          <span
+                            key={code.id}
+                            className="inline-flex items-center self-center w-fit pl-2 pr-1.5 mr-1 my-0.5 bg-tertiaryContainer border-1 border-gray-400 rounded-full"
+                          >
+                            {code.code}
                           </span>
-                          {passage.codeIds.map((codeId) => {
-                            const code = codes.find((c) => c.id === codeId);
-                            return code ? (
-                              <span
-                                key={code.id}
-                                className="inline-flex items-center self-center w-fit pl-2 pr-1.5 mr-1 my-0.5 bg-tertiaryContainer border-1 border-gray-400 rounded-full"
-                              >
-                                {code.code}
-                              </span>
-                            ) : null;
-                          })}
-                          <span>
-                            {context.slice(passageStartIdx + passage.text.length)}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="block my-8 w-full border-t border-outline"></span>
-                    </>
-                  );
-                })}
-            {passages.filter((p) => p.isHighlighted).length === 0 && (
-              <p className="text-center px-6">
-                You must code some passages to be able to select examples.
-              </p>
-            )}
-            </div>
-            <div className="flex justify-center py-6 w-full">
-              <Button
-                label="Confirm"
-                onClick={() => setShowExamplesSelectionWindow(false)}
-                variant="tertiary"
-              />
-            </div>
-          </div>
+                        ) : null;
+                      })}
+                      <span>{context.slice(passageStartIdx + passage.text.length)}</span>
+                    </div>
+                  </div>
+                  <span className="block my-8 w-full border-t border-outline"></span>
+                </>
+              );
+            })}
+          {passages.filter((p) => p.isHighlighted).length === 0 && (
+            <p className="text-center px-6">
+              You must code some passages to be able to select examples.
+            </p>
+          )}
+        </div>
+        <div className="flex justify-center py-6 w-full">
+          <Button
+            label="Confirm"
+            onClick={() => setShowExamplesSelectionWindow(false)}
+            variant="tertiary"
+          />
         </div>
       </OverlayWindow>
     </div>

@@ -362,9 +362,9 @@ const DataUploadCardContent = () => {
         />
       </div>
       <OverlayWindow isVisible={showChangeFileConfirmation} onClose={() => setShowChangeFileConfirmation(false)} maxWidth="max-w-[60vw]" maxHeight="max-h-[60vh]">
-        <div className="flex flex-col items-center p-6">
+        <div className="flex flex-col items-center p-8">
           <div className="flex flex-col gap-2 items-center pb-6">
-            <p>Are you sure you want to select a new file for coding?</p>
+            <p className="font-semibold">Are you sure you want to select a new file for coding?</p>
             <p>You will lose your current coding progress.</p>
           </div>
           <div className="flex gap-2 justify-end">

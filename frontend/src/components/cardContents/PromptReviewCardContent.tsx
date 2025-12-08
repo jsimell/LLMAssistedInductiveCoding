@@ -11,8 +11,7 @@ const PromptReviewCardContent = () => {
       "PromptReviewCardContent must be used within a WorkflowContextProvider"
     );
   }
-  const { reviewedPromptType, setReviewedPromptType, setProceedAvailable } =
-    context;
+  const { reviewedPromptType, setReviewedPromptType, setProceedAvailable } = context;
 
   const {
     generateHighlightSuggestionsPrompt,
@@ -38,25 +37,38 @@ const PromptReviewCardContent = () => {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
+        <p className="max-w-[90%]">
+          <b>NOTE:</b> This section is for review purposes only to improve transparency.
+          Unfortunately the prompts can not be directly edited here. However, in the next
+          step, you will be able to add custom coding guidelines that are included in all
+          prompts between the TASK and USER'S CODING STYLE sections.
+        </p>
+        <h2 className="pt-5 font-semibold text-xl">Suggestion Types</h2>
         <p>
-          The app uses three kinds of LLM suggestions. Each type has its own prompt and is triggered at a different moment in the workflow.
-          The prompts can be reviewed below for transparency, but unfortunately they can not be edited. However, in the next step, 
-          you will be able to add custom coding guidelines that will be included to all prompts between the TASK and USER'S CODING STYLE sections.
-          </p>
+          The app uses three kinds of LLM suggestions. Each type has its own prompt and is
+          triggered at a different moment in the workflow.
+        </p>
         <ol className="flex max-w-[80%] flex-col gap-3 list-decimal list-inside marker:font-bold">
           <li>
-            <b>Highlight suggestions:</b> These suggestions propose the next passage to highlight, together with 1-5 possible codes for that passage.
-            A fetch for highlight suggestions is triggered when you finish editing the codes of the previous passage, or when you click on an uncoded section in the data.
+            <b>Highlight suggestions:</b> These suggestions propose the next passage to
+            highlight, together with an initial coding for the passage. A fetch for
+            highlight suggestions is triggered when you finish editing the codes of the
+            previous passage, or when you click on an uncoded section in the data, in
+            which case the LLM searches for the first relevant passage starting from the
+            beginning of that uncoded section.
           </li>
           <li>
-            <b>Initial code suggestions:</b> These suggestions provide a complete coding for a specific passage. These suggestions appear in the UI when a code is being
-            typed for a passage, but nothing has been typed yet (hence the name "initial code suggestions").
-            A code suggestions fetch is triggered when a code in the UI gets activated.
+            <b>Code suggestions:</b> These suggestions appear in the UI when a code is
+            being typed for a passage, but the input field is still empty. A code
+            suggestions fetch is triggered when a code input in the UI gets activated.
           </li>
           <li>
-            <b>Autocomplete suggestions:</b> These suggestions provide a broad set of possible codes for the passage that is currently being coded. These suggestions 
-            can contain multiple phrasings of conceptually similar ideas to maximize autocomplete matches during code editing. 
-            Autocomplete suggestions are triggered at the same time as code suggestions.
+            <b>Autocomplete suggestions:</b> These suggestions provide a broad set of
+            possible codes for the passage that is currently being coded (i.e. has an
+            active code input). These suggestions can contain multiple phrasings of
+            conceptually similar ideas to maximize autocomplete matches during code
+            editing. Autocomplete suggestions are triggered at the same time as code
+            suggestions.
           </li>
         </ol>
       </div>
