@@ -1,12 +1,13 @@
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { WorkflowContext } from "../../../context/WorkflowContext";
 import CodeBookRow from "./CodeBookRow";
-import { ArrowDownTrayIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 import SmallButton from "../../SmallButton";
 import { parse } from "papaparse";
 import OverlayWindow from "../../OverlayWindow";
 import { getPassageWithSurroundingContext } from "./utils/passageUtils";
 import CodeSummaryWindowContent from "./CodeSummaryWindowContent";
+import { DocumentArrowDownIcon } from "@heroicons/react/24/solid";
 
 interface CodebookProps {
   codeManager: {
@@ -20,7 +21,7 @@ const Codebook = ({ codeManager }: CodebookProps) => {
   const [showCodeSummaryFor, setShowCodeSummaryFor] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { codebook, setCodebook, codes, passages, uploadedFile } = useContext(WorkflowContext)!;
+  const { codebook, importedCodes, setImportedCodes, setCodebook, codes, passages, uploadedFile } = useContext(WorkflowContext)!;
 
   const dataIsCSV = (uploadedFile && uploadedFile.type === "text/csv") ?? false;
 
@@ -34,15 +35,13 @@ const Codebook = ({ codeManager }: CodebookProps) => {
       .sort((a, b) => getCodeCount(b) - getCodeCount(a));
   }, [codebook, codes]); // Only re-sort when codebook or codes change
 
-  const usedCodes = useMemo(() => {
-    return codebookArray.filter(c => getCodeCount(c) > 0);
-  }, [codebookArray]);
+  const importedCodesArray = useMemo(() => {
+    return Array.from(importedCodes)
+      .filter((code) => code ? code.trim().length > 0 : false)
+      .sort((a, b) => getCodeCount(b) - getCodeCount(a));
+  }, [importedCodes]);
 
-  const unusedCodes = useMemo(() => {
-    return codebookArray.filter(c => getCodeCount(c) === 0);
-  }, [codebookArray]);
-
-  // When rawImportContent appears, parse it and update the codebook
+  // When rawImportContent changes, parse it and update the imported codes state
   useEffect(() => {
     if (rawImportContent) {
 
@@ -66,18 +65,18 @@ const Codebook = ({ codeManager }: CodebookProps) => {
             return;
           }
 
-          const importedCodes = results.data
+          const imported = results.data
             .map((row) => row[0]?.trim())
             .filter((code) => code && code.length > 0);
 
           // Error: File is empty
-          if (rawImportContent.trim().length === 0 || importedCodes.length === 0) {
+          if (rawImportContent.trim().length === 0 || imported.length === 0) {
             setErrorMessage("The imported file does not contain any codes.");
             return;
           }
 
           // Success - update codebook
-          setCodebook(new Set(importedCodes));
+          setImportedCodes(new Set(imported));
         }
       });
     }
@@ -134,14 +133,14 @@ const Codebook = ({ codeManager }: CodebookProps) => {
         <div className="grow"></div>
         <p className="text-lg font-semibold">Codebook</p>
         <div className="grow flex justify-end items-center">
-          <ArrowDownTrayIcon 
+          <ArrowDownTrayIcon
             className="size-5.5 stroke-2 cursor-pointer text-primary hover:bg-primary/20 rounded-sm" 
             onClick={handleCodebookDownload}
           />
         </div>
       </div>
       <div className="flex flex-col w-full p-6 items-center">
-        {codebookArray.length === 0 && 
+        {codebookArray.length + importedCodesArray.length === 0 && 
           <div className="flex flex-col items-center gap-3 pb-1.5">
             <p className="max-w-[60%] text-center">Add codes by highlighting passages in the data.</p>
             <p>OR</p>
@@ -149,7 +148,6 @@ const Codebook = ({ codeManager }: CodebookProps) => {
             <SmallButton
               label="Import codebook"
               onClick={handleImportButtonClick}
-              icon={ArrowDownTrayIcon}
               variant={"tertiary"}
             />
             {errorMessage && <p className="text-red-500 text-center">{errorMessage}</p>}
@@ -162,16 +160,16 @@ const Codebook = ({ codeManager }: CodebookProps) => {
             />
           </div>
         }
-        {usedCodes.map((code, index) => {
+        {codebookArray.map((code, index) => {
           return (
             <>
               <CodeBookRow key={code} code={code} codeManager={codeManager} count={getCodeCount(code)} setShowCodeSummaryFor={setShowCodeSummaryFor}  />
-              {index === usedCodes.length - 1 && unusedCodes.length > 0 ? <div className="pb-4"></div> : <></>}
+              {index === codebookArray.length - 1 && importedCodesArray.length > 0 ? <div className="pb-4"></div> : <></>}
             </>
           );
         })}
-        {unusedCodes.length > 0 && <p className="self-start pb-1 font-medium">Unused codes:</p>}
-        {codebookArray.filter(c => getCodeCount(c) === 0).map((code) => (
+        {importedCodesArray.length > 0 && <p className="self-start pb-1 font-medium">Unused imported codes:</p>}
+        {importedCodesArray.map((code) => (
           <CodeBookRow key={code} code={code} codeManager={codeManager} count={getCodeCount(code)} setShowCodeSummaryFor={setShowCodeSummaryFor} />
         ))}
       </div>

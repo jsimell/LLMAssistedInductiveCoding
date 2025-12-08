@@ -20,12 +20,29 @@ export const usePrompts = () => {
     codingGuidelines,
     fewShotExamples,
     codebook,
+    importedCodes,
     contextInfo,
     passages,
     codes,
     fewShotExamplesSelectionMode,
     randomFewShotExamplesCount
   } = context;
+
+  /**
+   * Helper function to construct the codebook string for embedding in prompts
+   * @returns A string representation of the codebook for prompts
+   */
+  const constructCodebookString = (): string => {
+    const codebookAndImported = Array.from(new Set([
+      ...Array.from(codebook),
+      ...Array.from(importedCodes)
+    ]));
+    return codebookAndImported.length > 0
+      ? `${codebookAndImported
+          .map((code) => `"${code}"`)
+          .join(", ")}`
+      : "No codes in the codebook yet"
+  };
 
   const constructFewShotExamplesString = (dataIsCSV: boolean): string => {
     // Common helper to escape strings for embedding in the prompt
@@ -98,7 +115,7 @@ export const usePrompts = () => {
         )
         .join(",\n");
 
-      return `[\n${examplesString}\n]`;
+      return examplesString;
     }
   }
 
@@ -148,15 +165,9 @@ ${
     : ""
 }
 ## USER'S CODING STYLE
-Codebook: [${
-  codebook.size > 0
-    ? `${Array.from(codebook)
-        .map((code) => `${code}`)
-        .join(", ")}`
-    : "No codes in the codebook yet"
-}]
-Few-shot examples of user coded passages (coded passage marked in context with <<< >>>): 
-${constructFewShotExamplesString(dataIsCSV)}
+Codebook: [${constructCodebookString()}]
+Few-shot examples of user coded passages (coded passage marked in context with <<< >>>):
+[${constructFewShotExamplesString(dataIsCSV)}]
 
 ## RESPONSE FORMAT
 Respond ONLY with a valid JavaScript object:
@@ -228,15 +239,9 @@ ${
     : ""
 }
 ## USER'S CODING STYLE
-Codebook: [${
-  codebook.size > 0
-    ? `${Array.from(codebook)
-        .map((code) => `${code}`)
-        .join(", ")}`
-    : "No codes in the codebook yet"
-}]
+Codebook: [${constructCodebookString()}]
 Few-shot examples of user coded passages (coded passage marked in context with <<< >>>):
-${constructFewShotExamplesString(dataIsCSV)}
+[${constructFewShotExamplesString(dataIsCSV)}]
 
 ## RESPONSE FORMAT
 Respond ONLY with a valid JavaScript object:
@@ -329,15 +334,9 @@ ${
     : ""
 }
 ## USER'S CODING STYLE
-Codebook: [${
-  codebook.size > 0
-    ? `${Array.from(codebook)
-        .map((code) => `${code}`)
-        .join(", ")}`
-    : "No codes in the codebook yet"
-}]
+Codebook: [${constructCodebookString()}]
 Few-shot examples of user coded passages (coded passage marked in context with <<< >>>):
-${constructFewShotExamplesString(dataIsCSV)}
+[${constructFewShotExamplesString(dataIsCSV)}]
 
 ## TARGET PASSAGE
 Passage to code: "${
@@ -430,15 +429,9 @@ ${
     : ""
 }
 ## USER'S CODING STYLE
-Codebook: [${
-  codebook.size > 0
-    ? `${Array.from(codebook)
-        .map((code) => `${code}`)
-        .join(", ")}`
-    : "No codes in the codebook yet"
-}]
+Codebook: [${constructCodebookString()}]
 Few-shot examples of user coded passages (coded passage marked in context with <<< >>>):
-${constructFewShotExamplesString(dataIsCSV)}
+[${constructFewShotExamplesString(dataIsCSV)}]
 
 ## TARGET PASSAGE
 Passage to code: "${

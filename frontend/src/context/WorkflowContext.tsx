@@ -108,6 +108,9 @@ export interface WorkflowContextType {
   codebook: Set<string>;
   setCodebook: Setter<Set<string>>;
 
+  importedCodes: Set<string>;
+  setImportedCodes: Setter<Set<string>>;
+
   nextCodeIdNumber: number;
   setNextCodeIdNumber: Setter<number>;
 
@@ -165,6 +168,7 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
   const [passagesPerColumn, setPassagesPerColumn] = useState<Map<number, Passage[]> | null>(null);
   const [codes, setCodes] = useState<Code[]>([]); // The codes of the data coding phase (contains all code instances, even duplicates)
   const [codebook, setCodebook] = useState<Set<string>>(new Set()); // Contains all unique codes
+  const [importedCodes, setImportedCodes] = useState<Set<string>>(new Set()); // Codes that were imported from a file
   const [nextCodeIdNumber, setNextCodeIdNumber] = useState<number>(0); // Next unique id for a new code
   const [nextPassageIdNumber, setNextPassageIdNumber] = useState<number>(0); // Next unique id for a new passage
   const [activeCodeId, setActiveCodeId] = useState<CodeId | null>(null);
@@ -181,18 +185,32 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
   const [showCodingInstructionsOverlay, setShowCodingInstructionsOverlay] = useState<boolean>(false);
 
 
-  // Ensure that all the distinct codes in 'codes' are also in 'codebook'
-  // However, this must not remove any codes that are in 'codebook' but not in 'codes'
+  // Ensure that all the distinct codes in 'codes' are also in 'codebook', and that codebook has no codes that are not in 'codes'
   useEffect(() => {
     setCodebook((prev) => {
-      const merged = new Set(prev);
-      for (const c of codes) {
-        const cleaned = c.code.split(/;/)[0].trim();
-        if (cleaned) merged.add(cleaned);
-      }
-      return merged;
+      const updated = new Set<string>();
+      // Add all distinct codes from 'codes'
+      codes.forEach((c) => {
+        if (c.code.trim().length > 0) {
+          updated.add(c.code);
+        }
+      });
+      return updated;
     });
   }, [codes]);
+
+  // If codebook contains codes that are also in importedCodes, remove them from importedCodes
+  useEffect(() => {
+    setImportedCodes((prev) => {
+      const updated = new Set<string>(prev);
+      codebook.forEach((code) => {
+        if (updated.has(code)) {
+          updated.delete(code);
+        }
+      });
+      return updated;
+    });
+  }, [codebook, importedCodes]);
 
   // Ensure that fewShotExamples only contains examples for passages that still exist, and that it contains up-to-date codes
   useEffect(() => {
@@ -254,6 +272,8 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
     setCodes,
     codebook,
     setCodebook,
+    importedCodes,
+    setImportedCodes,
     nextCodeIdNumber,
     setNextCodeIdNumber,
     nextPassageIdNumber,
