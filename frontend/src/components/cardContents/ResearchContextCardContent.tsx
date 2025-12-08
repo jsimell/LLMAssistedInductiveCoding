@@ -3,6 +3,12 @@ import { WorkflowContext } from "../../context/WorkflowContext";
 import Button from "../Button";
 
 const ResearchContextCardContent = () => {
+  const context = useContext(WorkflowContext);
+  if (!context) {
+    throw new Error(
+      "ResearchContextCardContent must be used within a WorkflowContextProvider"
+    );
+  }
   const {
     currentStep,
     researchQuestions,
@@ -10,7 +16,7 @@ const ResearchContextCardContent = () => {
     contextInfo,
     setContextInfo,
     setProceedAvailable,
-  } = useContext(WorkflowContext);
+  } = context;
   const [currentRQs, setCurrentRQs] = useState("");
   const [currentContextInfo, setCurrentContextInfo] = useState("");
   const formRef = useRef(null);
@@ -93,7 +99,7 @@ const ResearchContextCardContent = () => {
       <div className="flex justify-center">
         <Button
           label="Submit"
-          onClick={informationHasChanged() ? handleSubmit : undefined}
+          onClick={informationHasChanged() ? handleSubmit : () => {}}
           variant={informationHasChanged() && currentRQs ? "tertiary" : "disabled"}
           title={informationHasChanged() && currentRQs ? "Submit the current input" : ((!currentRQs) ? "Please enter at least one research question to enable submission" : "Please modify the information to enable submission")}
         />
