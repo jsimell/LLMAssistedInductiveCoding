@@ -170,10 +170,10 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
   const [activeCodeId, setActiveCodeId] = useState<CodeId | null>(null);
   const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState<boolean>(true); // Global toggle
   const [codeSuggestionContextWindowSize, setCodeSuggestionContextWindowSize] = useState<number | null>(
-    500
+    200
   ); // Number of characters in the context window ffor code and autocomplete suggestions
   const [highlightSuggestionContextWindowSize, setHighlightSuggestionContextWindowSize] = useState<number | null>(
-    500
+    600
   ); // Number of characters in the context window for highlight suggestions
   const [fewShotExamples, setFewShotExamples] = useState<FewShotExample[]>([]); // Few-shot examples for AI suggestions
   const [fewShotExamplesSelectionMode, setFewShotExamplesSelectionMode] = useState<"random" | "manual">("random");
