@@ -62,13 +62,11 @@ const CodeBlob = ({
   // REFS
   const changeIndexRef = useRef<number>(inputValue.length); // Track index where last change occurred inside contentEditable
   const inputRef = useRef<HTMLSpanElement | null>(null);
-  const firstSuggestionsFetch = useRef<boolean>(true);
 
   // EFFECTS
-
   // Active code blob should have focus
   useEffect(() => {
-    if (activeCodeId === codeId) {
+    if (activeCodeId === codeId && inputRef.current !== document.activeElement) {
       inputRef.current?.focus();
     }
   }, [activeCodeId]);
@@ -84,7 +82,9 @@ const CodeBlob = ({
       if (aiSuggestionsEnabled) {
         // Update suggestions for the parent passage
         const fetchSuggestions = async () => {
-          if (firstSuggestionsFetch.current && parentPassage.codeSuggestions.length > 0) {
+          // On first render, there may already be initial code suggestions (if created from highlight suggestion)
+          // In that case, only fetch autocomplete suggestions
+          if (parentPassage.autocompleteSuggestions.length === 0 && parentPassage.codeSuggestions.length > 0) {
             // Only fetch autocomplete suggestions on first render if initial code suggestions exist
             await updateAutocompleteSuggestionsForPassage(parentPassage.id);
             return;
@@ -92,7 +92,6 @@ const CodeBlob = ({
             // On subsequent renders, fetch both code suggestions and autocomplete suggestions
             await updateSuggestionsForPassage(parentPassage.id);
           }
-          firstSuggestionsFetch.current = false;
         };
 
         fetchSuggestions();
