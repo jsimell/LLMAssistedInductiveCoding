@@ -24,7 +24,6 @@ const CodingCardContent = () => {
     uploadedFile,
     csvHeaders,
     setProceedAvailable,
-    fewShotExamples,
     setVisitedSteps,
   } = context;
 
@@ -338,8 +337,6 @@ const CodingCardContent = () => {
     const dataIsCSV = uploadedFile?.type === "text/csv";
     const dataIsCSVWithHeaders =
       dataIsCSV && csvHeaders !== null && csvHeaders.length > 0;
-    const isInExamples =
-      fewShotExamples.find((example) => example.passageId === p.id) !== undefined;
 
     return (
       <div
