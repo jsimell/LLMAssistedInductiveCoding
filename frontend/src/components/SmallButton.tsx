@@ -28,7 +28,7 @@ const SmallButton: React.FC<SmallButtonProps> = ({
     <button
       onClick={onClick}
       title={title}
-      className={`flex items-center justify-center w-fit h-fit text-base font-medium text-nowrap gap-1 px-2 py-1 rounded-lg ${variants[variant]}`}
+      className={`flex items-center justify-center w-fit h-fit text-base font-medium text-nowrap gap-1 ${label ? "px-2 py-1" : "p-1.5"} rounded-lg ${variants[variant]}`}
       disabled={variant === "disabled"}
     >
       {Icon && iconPosition === "start" && <Icon className="size-5 stroke-2" />}
