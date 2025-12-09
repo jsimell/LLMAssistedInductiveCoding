@@ -143,7 +143,7 @@ const Codebook = ({ codeManager }: CodebookProps) => {
   };
 
   return (
-    <div className="flex flex-col sticky top-31 items-center w-full h-fit rounded-lg border-1 border-outline">
+    <div className="flex flex-col sticky top-31 items-center w-full h-fit rounded-lg border-1 border-outline max-h-[84vh]">
       <div className="flex h-fit w-full items-center px-3 pt-2.5 pb-2 border-b border-outline rounded-t-lg bg-container text-primary">
         <div className="grow"></div>
         <p className="text-lg font-semibold">Codebook</p>
@@ -154,7 +154,7 @@ const Codebook = ({ codeManager }: CodebookProps) => {
           />
         </div>
       </div>
-      <div className="flex flex-col w-full p-6 items-center">
+      <div className="flex flex-col w-full p-6 items-center overflow-y-auto">
         {codebookArray.length + importedCodesArray.length === 0 && 
           <div className="flex flex-col items-center gap-3 pb-1.5">
             <p className="max-w-[60%] text-center">Add codes by highlighting passages in the data.</p>
