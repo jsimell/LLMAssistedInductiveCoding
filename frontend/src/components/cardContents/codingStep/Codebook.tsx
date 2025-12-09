@@ -149,7 +149,7 @@ const Codebook = ({ codeManager }: CodebookProps) => {
         <p className="text-lg font-semibold">Codebook</p>
         <div className="grow flex justify-end items-center">
           <ArrowDownTrayIcon
-            className="size-5.5 stroke-2 cursor-pointer text-primary hover:bg-primary/20 rounded-sm" 
+            className="size-5.5 stroke-2 cursor-pointer text-[#08497a] hover:bg-primary/12 rounded-sm" 
             onClick={handleCodebookDownload}
           />
         </div>
@@ -188,17 +188,15 @@ const Codebook = ({ codeManager }: CodebookProps) => {
           <CodeBookRow key={code} code={code} codeManager={codeManager} count={getCodeCount(code)} setShowCodeSummaryFor={setShowCodeSummaryFor} />
         ))}
         {importedCodesArray.length + codebookArray.length > 0 && !showAddCodeInteraction &&
-          <div className="pt-4 w-full flex justify-center">
-            <SmallButton
-              label=""
-              icon={PlusIcon}
+          <div className="pt-3 w-full flex justify-center">
+            <PlusIcon
+              className="size-5.5 stroke-2 cursor-pointer text-[#08497a] hover:bg-primary/10 rounded-sm" 
               onClick={() => setShowAddCodeInteraction(true)}
-              variant="primary"
-              />
+            />
           </div>
         }
         {showAddCodeInteraction && (
-          <div className="mt-4 w-full flex items-center gap-2">
+          <div className="mt-4 w-full flex items-center justify-center gap-2">
             <input
               type="text"
               value={newCodeInput}
@@ -206,19 +204,19 @@ const Codebook = ({ codeManager }: CodebookProps) => {
               placeholder="Enter new code"
               className="w-3/4 px-3 py-1 border border-outline rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             />
-            <div className="flex gap-2">
+            <div className="flex py-1 gap-2">
               <SmallButton
                 label="Cancel"
                 onClick={() => {
                   setShowAddCodeInteraction(false);
                   setNewCodeInput("");
                 }}
-                variant="outlineTertiary"
+                variant="outlinePrimary"
               />
               <SmallButton
                 label="Add"
                 onClick={handleAddNewCode}
-                variant="tertiary"
+                variant="primary"
               />
             </div>
           </div>

@@ -151,7 +151,7 @@ const CodeBookRow = ({ code, codeManager, count, setShowCodeSummaryFor }: CodeBo
               <MagnifyingGlassIcon
                 title="Show code summary"
                 onClick={() => setShowCodeSummaryFor(code)}
-                className="w-6 h-6 p-0.5 flex-shrink-0 rounded-sm text-[#03528f] hover:bg-primary/10 cursor-pointer stroke-3"
+                className="w-6 h-6 p-0.5 flex-shrink-0 rounded-sm text-[#0b4d80] hover:bg-primary/10 cursor-pointer stroke-3"
               />
             }
             {count === 0 && 
